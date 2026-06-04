@@ -84,7 +84,7 @@ def agendar():
     qr.add_data(dados_qr)
     qr.make(fit=True)
     
-    # Salva o QR Code na memória temporária
+    # Salva na memória temporária
     img = qr.make_image(fill_color="black", back_color="white")
     img_buffer = io.BytesIO()
     img.save(img_buffer, format='PNG')
@@ -109,10 +109,8 @@ def agendar():
     pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(190, 8, text="APRESENTE O QR CODE ABAIXO NA TELA DO SEU CELULAR AO CHEGAR", ln=True, align='C')
     
-    # Insere a imagem direto do buffer da memória
     pdf.image(img_buffer, x=65, y=90, w=80) 
     
-    # Envia o PDF gerado diretamente para o download do cliente
     pdf_buffer = io.BytesIO()
     pdf.output(pdf_buffer)
     pdf_buffer.seek(0)
@@ -125,4 +123,6 @@ def agendar():
     )
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Em produção na nuvem, o Render define a porta automaticamente através da variável de ambiente PORT
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
