@@ -2,6 +2,7 @@ import os
 import time
 from flask import Flask, render_template_string, request, send_file
 import qrcode
+import io
 from fpdf import FPDF
 
 # ==========================================
@@ -10,7 +11,6 @@ from fpdf import FPDF
 
 app = Flask(__name__)
 
-# Layout visual da página de cadastro do cliente
 HTML_FORMULARIO = """
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -66,68 +66,63 @@ def index():
 
 @app.route('/agendar', methods=['POST'])
 def agendar():
-    # Recebe os dados digitados pelo cliente
     motorista = request.form.get('motorista').upper().strip()
     lacre = request.form.get('lacre').strip()
     placa = request.form.get('placa').upper().strip()
     combustivel = request.form.get('combustivel')
     
-    # Gera um ID único para o agendamento baseado no horário atual
     id_agendamento = f"AG-{int(time.time())}"
-
-    # Monta o texto compacto que vai virar o QR Code (fácil de ler na portaria)
     dados_qr = f"ID:{id_agendamento}|MOT:{motorista}|LAC:{lacre}|PLC:{placa}|PROD:{combustivel}"
 
-    # Criação do QR Code otimizado para leitura em telas de celular
+    # Criação do QR Code
     qr = qrcode.QRCode(
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L, # Nível leve de correção para o código ficar mais limpo e rápido de ler
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=10, 
-        border=4 # Margem branca essencial para o leitor do celular identificar os limites
+        border=4
     )
     qr.add_data(dados_qr)
     qr.make(fit=True)
     
-    # Salva o QR Code temporariamente como imagem
-    img_id = f"qr_{id_agendamento}.png"
+    # Salva o QR Code na memória temporária
     img = qr.make_image(fill_color="black", back_color="white")
-    img.save(img_id)
+    img_buffer = io.BytesIO()
+    img.save(img_buffer, format='PNG')
+    img_buffer.seek(0)
 
-    # Cria o documento PDF de confirmação
-    pdf_filename = f"agendamento_{id_agendamento}.pdf"
+    # Cria o documento PDF usando fpdf2
     pdf = FPDF()
     pdf.add_page()
     
-    # Título do Documento
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(190, 10, "COMPROVANTE DE AGENDAMENTO", ln=True, align='C')
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.cell(190, 10, text="COMPROVANTE DE AGENDAMENTO", ln=True, align='C')
     pdf.ln(10)
     
-    # Informações em formato texto
-    pdf.set_font("Arial", size=12)
-    pdf.cell(190, 8, f"ID Agendamento: {id_agendamento}", ln=True)
-    pdf.cell(190, 8, f"Motorista: {motorista}", ln=True)
-    pdf.cell(190, 8, f"Lacre: {lacre}", ln=True)
-    pdf.cell(190, 8, f"Placa: {placa}", ln=True)
-    pdf.cell(190, 8, f"Combustivel: {combustivel}", ln=True)
+    pdf.set_font("Helvetica", size=12)
+    pdf.cell(190, 8, text=f"ID Agendamento: {id_agendamento}", ln=True)
+    pdf.cell(190, 8, text=f"Motorista: {motorista}", ln=True)
+    pdf.cell(190, 8, text=f"Lacre: {lacre}", ln=True)
+    pdf.cell(190, 8, text=f"Placa: {placa}", ln=True)
+    pdf.cell(190, 8, text=f"Combustivel: {combustivel}", ln=True)
     pdf.ln(15)
     
-    # Instrução para o motorista
-    pdf.set_font("Arial", 'B', 11)
-    pdf.cell(190, 8, "APRESENTE O QR CODE ABAIXO NA TELA DO SEU CELULAR AO CHEGAR", ln=True, align='C')
+    pdf.set_font("Helvetica", 'B', 11)
+    pdf.cell(190, 8, text="APRESENTE O QR CODE ABAIXO NA TELA DO SEU CELULAR AO CHEGAR", ln=True, align='C')
     
-    # Insere o QR Code centralizado no PDF
-    pdf.image(img_id, x=65, y=90, w=80) 
+    # Insere a imagem direto do buffer da memória
+    pdf.image(img_buffer, x=65, y=90, w=80) 
     
-    # Salva o arquivo final
-    pdf.output(pdf_filename)
+    # Envia o PDF gerado diretamente para o download do cliente
+    pdf_buffer = io.BytesIO()
+    pdf.output(pdf_buffer)
+    pdf_buffer.seek(0)
 
-    # Remove a imagem avulsa do servidor para não acumular lixo digital
-    if os.path.exists(img_id):
-        os.remove(img_id)
-
-    # Faz o download automático do PDF para o cliente (ele pode abrir no celular)
-    return send_file(pdf_filename, as_attachment=True)
+    return send_file(
+        pdf_buffer, 
+        mimetype='application/pdf', 
+        as_attachment=True, 
+        download_name=f"agendamento_{id_agendamento}.pdf"
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
