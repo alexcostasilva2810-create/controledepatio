@@ -41,6 +41,10 @@ HTML_SISTEMA = """
         @media(max-width: 768px) { .full-width { grid-column: span 1; } }
         
         label { font-size: 12px; font-weight: 700; color: #4a5568; margin-bottom: 6px; text-transform: uppercase; }
+        
+        /* Força que o texto digitado nos inputs de texto fique sempre em maiúsculo */
+        input[type="text"] { text-transform: uppercase; }
+        
         input { padding: 11px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: #fafafa; transition: 0.2s; }
         input:focus { border-color: var(--accent); background: white; outline: none; box-shadow: 0 0 0 3px rgba(44,116,179,0.15); }
         
@@ -70,20 +74,24 @@ HTML_SISTEMA = """
         </div>
 
         <div id="cadastro" class="card active">
-            <form action="/agendar" method="POST" class="form-grid">
+            <form action="/agendar" method="POST" enctype="multipart/form-data" class="form-grid">
                 <div class="form-group"><label>Saída da Origem</label><input type="datetime-local" name="saida_origem" required></div>
-                <div class="form-group"><label>Previsão de Chegada</label><input type="datetime-local" name="prev_chegada" required></div>
-                <div class="form-group"><label>Chegada no Posto</label><input type="datetime-local" name="chegada_posto" required></div>
-                <div class="form-group"><label>Nº Nota Fiscal</label><input type="text" name="num_nota" required placeholder="Ex: 374839"></div>
-                <div class="form-group"><label>Placa do Veículo</label><input type="text" name="placa" required placeholder="Ex: EUK9C95"></div>
-                <div class="form-group"><label>Número do Lacre</label><input type="text" name="lacre" required placeholder="Ex: 562374"></div>
-                <div class="form-group full-width"><label>Nome do Motorista</label><input type="text" name="motorista" required></div>
-                <div class="form-group"><label>Transportadora</label><input type="text" name="transportadora" required placeholder="Ex: AGROLOG"></div>
-                <div class="form-group"><label>Cliente Destinatário</label><input type="text" name="cliente" required placeholder="Ex: ABBA MANAUS"></div>
-                <div class="form-group"><label>Cidade de Destino</label><input type="text" name="destino" required placeholder="Ex: MANAUS"></div>
-                <div class="form-group"><label>Contato do Motorista</label><input type="text" name="telefone" required placeholder="Ex: (66) 99600-1291"></div>
-                <div class="form-group"><label>Produto</label><input type="text" name="produto" required placeholder="Ex: ANIDRO"></div>
-                <div class="form-group"><label>Volume a 20º</label><input type="text" name="vol20" required placeholder="Ex: 61.534"></div>
+                <div class="form-group"><label>Previsão de chegada no Posto</label><input type="datetime-local" name="prev_chegada" required></div>
+                
+                <div class="form-group"><label>Chegada no Posto</label><input type="datetime-local" name="chegada_posto"></div>
+                
+                <div class="form-group"><label>Nº Nota Fiscal</label><input type="text" name="num_nota" required placeholder="EX: 374839"></div>
+                <div class="form-group"><label>Placa do Veículo</label><input type="text" name="placa" required placeholder="EX: EUK9C95"></div>
+                <div class="form-group"><label>Número do Lacre</label><input type="text" name="lacre" required placeholder="EX: 562374"></div>
+                <div class="form-group full-width"><label>Nome do Motorista</label><input type="text" name="motorista" required placeholder="NOME COMPLETO"></div>
+                <div class="form-group"><label>Transportadora</label><input type="text" name="transportadora" required placeholder="EX: AGROLOG"></div>
+                <div class="form-group"><label>Cliente Destinatário</label><input type="text" name="cliente" required placeholder="EX: ABBA MANAUS"></div>
+                <div class="form-group"><label>Cidade de Destino</label><input type="text" name="destino" required placeholder="EX: MANAUS"></div>
+                <div class="form-group"><label>Contato do Motorista</label><input type="text" name="telefone" required placeholder="EX: (66) 99600-1291"></div>
+                <div class="form-group"><label>Produto</label><input type="text" name="produto" required placeholder="EX: ANIDRO"></div>
+                <div class="form-group"><label>Volume a 20º</label><input type="text" name="vol20" required placeholder="EX: 61.534"></div>
+                
+                <div class="form-group full-width"><label>Upload XML / Documento da NF</label><input type="file" name="arquivo_nf" accept=".xml,.pdf"></div>
                 
                 <div class="full-width">
                     <button type="submit" class="btn btn-submit">Validar Entrada & Emitir Ticket PDF</button>
@@ -178,39 +186,43 @@ HTML_SISTEMA = """
 
 def processar_e_calcular_dados(form):
     def formatar_data_br(data_html):
+        if not data_html: return "" # Retorna vazio caso o campo não seja preenchido
         try: return datetime.strptime(data_html, '%Y-%m-%dT%H:%M').strftime('%d/%m/%Y %H:%M')
         except: return data_html
 
     saida = form.get('saida_origem')
     chegada = form.get('chegada_posto')
     
-    t1_transito = "00:00"
-    try:
-        dt_saida = datetime.strptime(saida, '%Y-%m-%dT%H:%M')
-        dt_chegada = datetime.strptime(chegada, '%Y-%m-%dT%H:%M')
-        diff = dt_chegada - dt_saida
-        total_segundos = int(diff.total_seconds())
-        if total_segundos > 0:
-            horas = total_segundos // 3600
-            minutos = (total_segundos % 3600) // 60
-            t1_transito = f"{horas:02d}:{minutos:02d}"
-    except: pass
+    t1_transito = ""
+    # Só calcula a duração se o campo opcional de chegada possuir dados
+    if saida and chegada:
+        try:
+            dt_saida = datetime.strptime(saida, '%Y-%m-%dT%H:%M')
+            dt_chegada = datetime.strptime(chegada, '%Y-%m-%dT%H:%M')
+            diff = dt_chegada - dt_saida
+            total_segundos = int(diff.total_seconds())
+            if total_segundos > 0:
+                horas = total_segundos // 3600
+                minutos = (total_segundos % 3600) // 60
+                t1_transito = f"{horas:02d}:{minutos:02d}"
+        except: pass
 
+    # .upper() adicionado em todos os campos de texto para garantir Letras Maiúsculas
     return {
         "saida_origem": formatar_data_br(saida),
         "prev_chegada": formatar_data_br(form.get('prev_chegada')),
         "chegada_posto": formatar_data_br(chegada),
         "t1_transito": t1_transito,
-        "num_nota": form.get('num_nota').strip(),
-        "placa": form.get('placa').upper().strip(),
-        "lacre": form.get('lacre').strip(),
-        "motorista": form.get('motorista').upper().strip(),
-        "transportadora": form.get('transportadora').upper().strip(),
-        "cliente": form.get('cliente').upper().strip(),
-        "destino": form.get('destino').upper().strip(),
-        "telefone": form.get('telefone').strip(),
-        "produto": form.get('produto').upper().strip(),
-        "vol20": form.get('vol20').strip()
+        "num_nota": form.get('num_nota', '').upper().strip(),
+        "placa": form.get('placa', '').upper().strip(),
+        "lacre": form.get('lacre', '').upper().strip(),
+        "motorista": form.get('motorista', '').upper().strip(),
+        "transportadora": form.get('transportadora', '').upper().strip(),
+        "cliente": form.get('cliente', '').upper().strip(),
+        "destino": form.get('destino', '').upper().strip(),
+        "telefone": form.get('telefone', '').upper().strip(),
+        "produto": form.get('produto', '').upper().strip(),
+        "vol20": form.get('vol20', '').upper().strip()
     }
 
 @app.route('/')
@@ -225,18 +237,24 @@ def index():
 @app.route('/agendar', methods=['POST'])
 def agendar():
     dados = processar_e_calcular_dados(request.form)
+    
+    # Captura do arquivo enviado pelo usuário (opcional)
+    arquivo = request.files.get('arquivo_nf')
+    if arquivo and arquivo.filename != '':
+        print(f"Arquivo recebido: {arquivo.filename}")
+        # Aqui o arquivo está na memória pronto para uso caso queira salvá-lo no futuro.
+
     seq_gerado = "1"
     try:
         resp = requests.post(URL_PLANILHA_GOOGLE, json=dados, timeout=12)
         if resp.status_code == 200: seq_gerado = resp.json().get('sequencial', '1')
     except: pass
 
-    # GERANDO PDF REESTRUTURADO E SEGURO CONTRA CORTES
+    # GERANDO PDF REESTRUTURADO
     pdf = FPDF()
     pdf.add_page()
     pdf.set_margins(15, 15, 15)
     
-    # Faixa Azul superior limpa
     pdf.set_fill_color(10, 38, 71)
     pdf.rect(0, 0, 210, 35, 'F')
     
@@ -249,7 +267,6 @@ def agendar():
     pdf.ln(15)
     pdf.set_text_color(0, 0, 0)
     
-    # Campo ID destacado
     pdf.set_fill_color(240, 244, 248)
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(180, 9, f" SEQUENCIAL REGISTRO: #{int(seq_gerado):04d}", 0, 1, 'L', True)
@@ -269,26 +286,24 @@ def agendar():
     desenhar_item("PRODUTO CARREGADO", dados['produto'])
     desenhar_item("VOLUME INFORMADO (20º)", dados['vol20'])
     desenhar_item("SAÍDA DA ORIGEM", dados['saida_origem'])
-    desenhar_item("REGISTRO POSTO", dados['chegada_posto'])
-    desenhar_item("TEMPO TOTAL TRÂNSITO", f"{dados['t1_transito']} Horas")
+    desenhar_item("PREV. CHEGADA POSTO", dados['prev_chegada'])
+    desenhar_item("REGISTRO POSTO REAL", dados['chegada_posto'] if dados['chegada_posto'] else "NÃO INFORMADO")
+    desenhar_item("TEMPO TOTAL TRÂNSITO", f"{dados['t1_transito']} Horas" if dados['t1_transito'] else "EM TRÂNSITO")
     
     pdf.ln(12)
     
-    # Texto de instrução reposicionado para não trombar com o código
     pdf.set_font("Arial", 'B', 10)
     pdf.set_text_color(10, 38, 71)
     pdf.cell(180, 5, "APRESENTE O QR-CODE ABAIXO NO PORTÃO DA ETC", 0, 1, 'C')
     pdf.ln(4)
 
-    # Geração do QR Code limpo
     qr_conteudo = f"ID:{seq_gerado}|PLC:{dados['placa']}|NF:{dados['num_nota']}"
     qr = qrcode.make(qr_conteudo)
     qr_buffer = io.BytesIO()
     qr.save(qr_buffer)
     qr_buffer.seek(0)
     
-    # Define a posição vertical fixa e segura para o QR Code no rodapé
-    pdf.image(qr_buffer, x=80, y=145, w=50)
+    pdf.image(qr_buffer, x=80, y=155, w=50)
     
     output = io.BytesIO()
     pdf.output(output)
