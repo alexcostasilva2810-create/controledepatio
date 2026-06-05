@@ -10,15 +10,18 @@ app = Flask(__name__)
 # ==============================================================================
 URL_PLANILHA_GOOGLE = "https://script.google.com/macros/s/AKfycbxlzebvfA0GQcAyQ1Oc9IFC6XX9t4mR7cOLzj4jt8sX0B2YZoozCuTzlAnZHeL8aHjr/exec"
 
-# Usuários e senhas permitidos no sistema (Altere ou adicione aqui facilmente)
+# Cadastre aqui seus usuários respeitando as iniciais solicitadas:
+# - Inicia com 'fs': Apenas Portaria e Histórico
+# - Inicia com 'gd': Apenas Gestão ETC e Histórico
+# - 'admin': Acesso completo a todas as funções
 USUARIOS_PERMITIDOS = {
     "admin": {"senha": "123", "nome": "ADMINISTRADOR ZION"},
-    "supervisor": {"senha": "456", "nome": "SUPERVISOR ETC"},
-    "portaria": {"senha": "789", "nome": "OPERADOR PORTARIA"}
+    "fs_portaria": {"senha": "789", "nome": "PORTARIA - OPERADOR FS"},
+    "gd_supervisor": {"senha": "456", "nome": "SUPERVISOR ETC - GD"}
 }
 
 # ==============================================================================
-# BLOCO 2: INTERFACE VISUAL (HTML, CSS E JAVASCRIPT INTEGRADO)
+# BLOCO 2: INTERFACE VISUAL (HTML, CSS E SISTEMA DE TELAS INTEGRADO)
 # ==============================================================================
 HTML_SISTEMA = """
 <!DOCTYPE html>
@@ -28,28 +31,59 @@ HTML_SISTEMA = """
     <title>Zion Tecnologia - Monitoramento ETC</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --primary: #0a2647; --secondary: #144272; --accent: #2c74b3; --success: #1b4d3e; --gray: #f4f6f9; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background-color: var(--gray); color: #333; }
+        :root { 
+            --primary: #0a2647; 
+            --secondary: #144272; 
+            --accent: #2c74b3; 
+            --success: #1b4d3e; 
+            --danger: #9b2c2c;
+            --gray: #f4f6f9; 
+        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background-color: var(--gray); color: #333; overflow-x: hidden; }
         
-        /* Cabeçalho Customizado */
+        /* ------------------------------------
+           1. CAPA INICIAL LOGÍSTICA
+        ------------------------------------ */
+        #capaInicial { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: linear-gradient(135px, rgba(10,38,71,0.95), rgba(20,66,114,0.85)), 
+                        url('https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            color: white; text-align: center; cursor: pointer; z-index: 999; transition: transform 0.6s ease-in-out;
+        }
+        #capaInicial h1 { font-size: 48px; font-weight: 800; margin: 0 0 10px 0; letter-spacing: 3px; text-shadow: 2px 2px 8px rgba(0,0,0,0.5); }
+        #capaInicial p { font-size: 18px; max-width: 600px; margin: 0 0 30px 0; opacity: 0.9; font-weight: 300; }
+        .pulse-btn { background: var(--accent); color: white; border: none; padding: 15px 35px; font-size: 16px; font-weight: bold; border-radius: 30px; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 0 0 rgba(44,116,179,0.7); animation: pulse 2s infinite; }
+        
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(44,116,179,0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(44,116,179,0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(44,116,179,0); }
+        }
+
+        /* ------------------------------------
+           2. TELA DE LOGIN
+        ------------------------------------ */
+        #containerLogin { display: none; width: 100%; height: 100vh; justify-content: center; align-items: center; background: #e2e8f0; }
+        #telaLogin { width: 100%; max-width: 400px; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        #telaLogin h2 { color: var(--primary); margin-bottom: 25px; font-weight: 700; margin-top: 0; }
+        .msg-sucesso { color: #2e7d32; font-weight: bold; margin: 15px 0; display: none; }
+        
+        /* ------------------------------------
+           3. SISTEMA PRINCIPAL
+        ------------------------------------ */
+        #sistemaPrincipal { display: none; }
         .navbar { background: var(--primary); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-        .navbar .logo { font-size: 24px; font-weight: 800; letter-spacing: 1.5px; color: #fff; }
-        .navbar .subtitulo { font-size: 16px; font-weight: 400; opacity: 0.9; }
-        .user-info { font-size: 14px; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; }
+        .navbar .logo { font-size: 22px; font-weight: 800; letter-spacing: 1.5px; }
+        .navbar .subtitulo { font-size: 15px; font-weight: 400; opacity: 0.85; }
+        .nav-right { display: flex; align-items: center; gap: 15px; }
+        .user-info { font-size: 13px; background: rgba(255,255,255,0.1); padding: 6px 15px; border-radius: 20px; font-weight: 600; }
         
         .container { max-width: 1400px; margin: 25px auto; padding: 0 20px; }
         
-        /* Tela de Login */
-        #telaLogin { max-width: 400px; margin: 100px auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
-        #telaLogin h2 { color: var(--primary); margin-bottom: 25px; font-weight: 700; }
-        .msg-sucesso { color: #2e7d32; font-weight: bold; margin: 15px 0; display: none; }
-        
-        /* Sistema Principal Hidden por padrão */
-        #sistemaPrincipal { display: none; }
-        
         /* Abas de Navegação */
         .tabs { display: flex; margin-bottom: 25px; gap: 4px; }
-        .tab-button { flex: 1; background: #e2e8f0; border: none; padding: 15px; font-size: 14px; font-weight: bold; color: #4a5568; cursor: pointer; border-radius: 6px 6px 0 0; transition: 0.2s; text-transform: uppercase; }
+        .tab-button { flex: 1; background: #cbd5e1; border: none; padding: 15px; font-size: 14px; font-weight: bold; color: #4a5568; cursor: pointer; border-radius: 6px 6px 0 0; transition: 0.2s; text-transform: uppercase; }
         .tab-button.active { background: white; color: var(--primary); border-bottom: 4px solid var(--accent); }
         
         .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: none; }
@@ -68,8 +102,10 @@ HTML_SISTEMA = """
         .btn { padding: 14px 24px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.2s; font-size: 13px; }
         .btn-submit { background-color: var(--success); color: white; width: 100%; margin-top: 15px; }
         .btn-primary { background-color: var(--primary); color: white; }
-        .btn-edit { background-color: #ed8936; color: white; padding: 6px 12px; font-size: 11px; }
-        .btn-save { background-color: #38a169; color: white; padding: 6px 12px; font-size: 11px; display: none; }
+        .btn-danger { background-color: var(--danger); color: white; padding: 8px 18px; border-radius: 20px; font-size: 12px; }
+        .btn-danger:hover { background-color: #742a2a; }
+        .btn-edit { background-color: #ed8936; color: white; padding: 6px 12px; font-size: 11px; border-radius: 4px; }
+        .btn-save { background-color: #38a169; color: white; padding: 6px 12px; font-size: 11px; border-radius: 4px; display: none; }
         
         /* Tabela Histórico */
         .table-container { overflow-x: auto; margin-top: 15px; }
@@ -77,27 +113,35 @@ HTML_SISTEMA = """
         th { background-color: var(--primary); color: white; padding: 12px 8px; font-weight: 600; text-transform: uppercase; }
         td { padding: 10px 8px; border-bottom: 1px solid #e2e8f0; }
         tr:nth-child(even) { background-color: #f8fafc; }
-        .editable-cell input { padding: 4px; font-size: 12px; width: 95%; border: 1px solid #cbd5e1; }
     </style>
 </head>
 <body>
 
-    <div id="telaLogin">
-        <div style="font-size: 28px; font-weight: 800; color: #0a2647; margin-bottom: 5px;">ZION TECNOLOGIA</div>
-        <p style="color: #718096; margin-top: 0; font-size: 14px;">SEJA BEM VINDO AO SISTEMA ZION</p>
-        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 25px;">
-        
-        <div class="form-group" style="text-align: left; margin-bottom: 15px;">
-            <label>Usuário</label>
-            <input type="text" id="loginUser" required placeholder="Digite seu usuário">
+    <div id="capaInicial" onclick="entrarNoLogin()">
+        <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 4px; color: var(--accent); font-weight: bold; margin-bottom: 10px;">Zion Logística Operacional</div>
+        <h1>MONITORAMENTO DE PÁTIO & ETC</h1>
+        <p>Controle integrado de portaria, fluxos de transbordo, indicadores de estadia de frotas e gerenciamento em tempo real.</p>
+        <button class="pulse-btn">Iniciar Lançamentos</button>
+    </div>
+
+    <div id="containerLogin">
+        <div id="telaLogin">
+            <div style="font-size: 26px; font-weight: 800; color: #0a2647; margin-bottom: 5px;">SISTEMA ZION</div>
+            <p style="color: #718096; margin-top: 0; font-size: 13px;">ACESSO RESTRITO POR PERFIL DE USUÁRIO</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 25px;">
+            
+            <div class="form-group" style="text-align: left; margin-bottom: 15px;">
+                <label>Usuário</label>
+                <input type="text" id="loginUser" required placeholder="Ex: FS_PORTARIA">
+            </div>
+            <div class="form-group" style="text-align: left; margin-bottom: 20px;">
+                <label>Senha</label>
+                <input type="password" id="loginPass" required placeholder="Digite sua senha">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="executarLogin()">Acessar Painel</button>
+            
+            <div id="msgSucesso" class="msg-sucesso"></div>
         </div>
-        <div class="form-group" style="text-align: left; margin-bottom: 20px;">
-            <label>Senha</label>
-            <input type="password" id="loginPass" required placeholder="Digite sua senha">
-        </div>
-        <button class="btn btn-primary" style="width: 100%;" onclick="executarLogin()">Acessar Painel</button>
-        
-        <div id="msgSucesso" class="msg-sucesso"></div>
     </div>
 
     <div id="sistemaPrincipal">
@@ -106,17 +150,20 @@ HTML_SISTEMA = """
                 <span class="logo">Zion Tecnologia</span>
                 <span class="subtitulo"> | Sistema de Monitoramento - ETC</span>
             </div>
-            <div class="user-info" id="nomeUsuarioLogado">Olá, Usuário</div>
+            <div class="nav-right">
+                <div class="user-info" id="nomeUsuarioLogado">OLÁ, USUÁRIO</div>
+                <button class="btn btn-danger" onclick="deslogarSistema()">SAIR</button>
+            </div>
         </div>
 
         <div class="container">
-            <div class="tabs">
-                <button class="tab-button active" onclick="switchTab('cadastro')">📝 Portaria (Registro)</button>
-                <button class="tab-button" onclick="switchTab('supervisor')">⚙️ Gestão Operacional ETC</button>
-                <button class="tab-button" onclick="switchTab('painel')">📊 Histórico Geral</button>
+            <div class="tabs" id="barraAbas">
+                <button class="tab-button" id="tab_portaria" onclick="switchTab('cadastro')">📝 Portaria (Registro)</button>
+                <button class="tab-button" id="tab_etc" onclick="switchTab('supervisor')">⚙️ Gestão Operacional ETC</button>
+                <button class="tab-button" id="tab_historico" onclick="switchTab('painel')">📊 Histórico Geral</button>
             </div>
 
-            <div id="cadastro" class="card active">
+            <div id="cadastro" class="card">
                 <form id="formCadastro" onsubmit="salvarPortaria(event)" class="form-grid">
                     <div class="form-group"><label>Saída da Origem</label><input type="datetime-local" name="saida_origem" required></div>
                     <div class="form-group"><label>Previsão de chegada no Posto</label><input type="datetime-local" name="prev_chegada" required></div>
@@ -140,7 +187,7 @@ HTML_SISTEMA = """
             </div>
 
             <div id="supervisor" class="card">
-                <h3 style="color: var(--primary); margin-top: 0;">Módulo de Controle Interno ETC</h3>
+                <h3 style="color: var(--primary); margin-top: 0; border-bottom: 2px solid var(--gray); padding-bottom: 10px;">Módulo de Controle Interno ETC</h3>
                 <form id="formSupervisor" onsubmit="salvarSupervisor(event)" class="form-grid">
                     <div class="form-group"><label>Vincular ao Registro (Nº SEQ)</label><input type="text" id="sup_seq" required placeholder="Ex: 1"></div>
                     <div class="form-group"><label>Chegada ETC</label><input type="datetime-local" id="sup_chegada" required></div>
@@ -177,6 +224,12 @@ HTML_SISTEMA = """
 
     <script>
         let dadosLocais = [];
+        let perfilUsuario = "";
+
+        function entrarNoLogin() {
+            document.getElementById('capaInicial').style.transform = "translateY(-100%)";
+            document.getElementById('containerLogin').style.display = "flex";
+        }
 
         function executarLogin() {
             let u = document.getElementById('loginUser').value.toLowerCase();
@@ -190,14 +243,18 @@ HTML_SISTEMA = """
             .then(res => res.json())
             .then(data => {
                 if(data.status === "sucesso") {
+                    perfilUsuario = u;
                     let containerMsg = document.getElementById('msgSucesso');
                     containerMsg.style.display = "block";
                     containerMsg.innerText = `Acesso concedido com sucesso! Olá ${data.nome}, vamos aos lançamentos.`;
                     
                     document.getElementById('nomeUsuarioLogado').innerText = `Operador: ${data.nome}`;
                     
+                    // Configura a visibilidade das abas com base nas regras de iniciais
+                    configurarAbasPorIniciais(u);
+
                     setTimeout(() => {
-                        document.getElementById('telaLogin').style.display = "none";
+                        document.getElementById('containerLogin').style.display = "none";
                         document.getElementById('sistemaPrincipal').style.display = "block";
                         atualizarTabelaHistorico();
                     }, 2000);
@@ -207,11 +264,50 @@ HTML_SISTEMA = """
             });
         }
 
+        function configurarAbasPorIniciais(usuario) {
+            // Reseta exibições padrões das abas
+            document.getElementById('tab_portaria').style.display = "block";
+            document.getElementById('tab_etc').style.display = "block";
+            
+            if (usuario.startsWith('fs')) {
+                // Usuário 'fs' não vê a Gestão Operacional da ETC
+                document.getElementById('tab_etc').style.display = "none";
+                switchTab('cadastro');
+                document.getElementById('tab_portaria').classList.add('active');
+            } else if (usuario.startsWith('gd')) {
+                // Usuário 'gd' não vê a Portaria
+                document.getElementById('tab_portaria').style.display = "none";
+                switchTab('supervisor');
+                document.getElementById('tab_etc').classList.add('active');
+            } else {
+                // Administrador vê tudo, inicia na primeira aba
+                switchTab('cadastro');
+                document.getElementById('tab_portaria').classList.add('active');
+            }
+        }
+
+        function deslogarSistema() {
+            // Limpa dados e volta à estaca zero na capa inicial
+            perfilUsuario = "";
+            document.getElementById('loginUser').value = "";
+            document.getElementById('loginPass').value = "";
+            document.getElementById('msgSucesso').style.display = "none";
+            
+            document.getElementById('sistemaPrincipal').style.display = "none";
+            document.getElementById('containerLogin').style.display = "none";
+            document.getElementById('capaInicial').style.transform = "translateY(0)";
+        }
+
         function switchTab(tabId) {
             document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
+            
+            let cardElement = document.getElementById(tabId);
+            if(cardElement) cardElement.classList.add('active');
+            
+            if(event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
         }
 
         function salvarPortaria(e) {
@@ -222,7 +318,7 @@ HTML_SISTEMA = """
             .then(res => res.json())
             .then(data => {
                 alert("Registro de Portaria salvo com sucesso!");
-                document.getElementById('formCadastro').reset(); // Limpa campos automaticamente
+                document.getElementById('formCadastro').reset(); // Limpa os campos automaticamente
                 atualizarTabelaHistorico();
             });
         }
@@ -247,7 +343,7 @@ HTML_SISTEMA = """
             .then(res => res.json())
             .then(data => {
                 alert("Dados da ETC salvos e integrados!");
-                document.getElementById('formSupervisor').reset(); // Limpa campos automaticamente
+                document.getElementById('formSupervisor').reset(); // Limpa os campos automaticamente
                 atualizarTabelaHistorico();
             });
         }
@@ -286,10 +382,9 @@ HTML_SISTEMA = """
             let tr = document.getElementById(`linha-${index}`);
             let colunas = tr.getElementsByTagName('td');
             
-            // Torna células selecionadas em campos de input editáveis
             for(let i = 1; i <= 3; i++) {
                 let valorAtual = colunas[i].innerText;
-                colunas[i].innerHTML = `<input type="text" value="${valorAtual}" style="text-transform:uppercase;">`;
+                colunas[i].innerHTML = `<input type="text" value="${valorAtual}" style="text-transform:uppercase; padding:4px; font-size:12px; width:90%;">`;
             }
 
             document.getElementById(`btn-edit-${index}`).style.display = "none";
@@ -333,15 +428,14 @@ def index():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     req = request.json
-    u = req.get('usuario')
-    s = req.get('senha')
+    u = req.get('usuario', '').lower().strip()
+    s = req.get('senha', '')
     if u in USUARIOS_PERMITIDOS and USUARIOS_PERMITIDOS[u]['senha'] == s:
         return jsonify({"status": "sucesso", "nome": USUARIOS_PERMITIDOS[u]['nome']})
     return jsonify({"status": "erro"})
 
 @app.route('/api/dados', methods=['GET'])
 def obter_dados():
-    # Simula ou busca dados integrados da planilha para preenchimento da tabela
     try:
         r = requests.get(URL_PLANILHA_GOOGLE, timeout=10)
         return jsonify(r.json() if r.status_code == 200 else [])
@@ -350,11 +444,8 @@ def obter_dados():
 
 @app.route('/api/salvar_portaria', methods=['POST'])
 def salvar_portaria():
-    # Coleta e higienização para Maiúsculas automáticas
     f = request.form
     dados = {k: v.upper().strip() for k, v in f.items() if hasattr(v, 'upper')}
-    
-    # Tratamento de datas e envio para a API do Google Sheets
     try: requests.post(URL_PLANILHA_GOOGLE, json=dados, timeout=10)
     except: pass
     return jsonify({"status": "salvo"})
@@ -362,8 +453,6 @@ def salvar_portaria():
 @app.route('/api/salvar_supervisor', methods=['POST'])
 def salvar_supervisor():
     req = request.json
-    
-    # Execução das regras de cálculo matemático operacional (Duração de Tempos)
     fmt = '%Y-%m-%dT%H:%M'
     t3_descarga = ""
     t4_operacional = ""
@@ -382,12 +471,10 @@ def salvar_supervisor():
         t4_operacional = f"{int(diff4.total_seconds() // 3600):02d}:{int((diff4.total_seconds() % 3600) // 60):02d}"
     except: pass
 
-    # Envia os pacotes processados para arquivamento ou retorno
     return jsonify({"status": "atualizado", "t3": t3_descarga, "t4": t4_operacional})
 
 @app.route('/api/inline_update', methods=['POST'])
 def inline_update():
-    # Rota que lida com o botão salvar editado direto na tabela de Histórico
     return jsonify({"status": "sucesso"})
 
 if __name__ == '__main__':
