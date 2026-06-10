@@ -3,7 +3,7 @@ from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
-# BANCO DE DADOS REAL DAS BALSAS (Mantendo a referência de m³ e teto máximo de CTS)
+# BANCO DE DADOS REAL DAS BALSAS (Mantendo as capacidades e CTS do seu padrão)
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17},
     "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
@@ -36,7 +36,7 @@ HTML_INTERFACE = """
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Zion - Controle de Pátio Dinâmico</title>
+    <title>Zion - Controle de Pátio Avançado</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; padding: 25px; }
@@ -82,7 +82,7 @@ HTML_INTERFACE = """
                                 <input type="text" class="form-control bg-light fw-bold text-dark" id="cap_display" readonly placeholder="0.0 m³">
                             </div>
                             <div class="col-6">
-                                <label class="form-label small text-muted">Capacidade Máxima (Meta)</label>
+                                <label class="form-label small text-muted">Meta Total Necessária</label>
                                 <input type="text" class="form-control bg-light fw-bold text-primary" id="cts_display" readonly placeholder="0 CTS">
                             </div>
                         </div>
@@ -98,14 +98,27 @@ HTML_INTERFACE = """
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold text-secondary small">INTERVALO ENTRE AGENDAMENTOS</label>
-                            <select class="form-select fw-bold text-primary" id="frequencia_horas" onchange="recalcularJanelasHorarias()" required>
-                                <option value="1">A cada 1 hora (Janelas cheias)</option>
-                                <option value="2" selected>A cada 2 horas</option>
-                                <option value="3">A cada 3 horas</option>
-                                <option value="4">A cada 4 horas</option>
-                            </select>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-bold text-secondary small">INTERVALO (FREQ.)</label>
+                                <select class="form-select" id="frequencia_horas" onchange="recalcularJanelasHorarias()" required>
+                                    <option value="1">A cada 1 hora</option>
+                                    <option value="2" selected>A cada 2 horas</option>
+                                    <option value="3">A cada 3 horas</option>
+                                    <option value="4">A cada 4 horas</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-bold text-secondary small">QTD DE JANELAS</label>
+                                <select class="form-select fw-bold text-danger" id="qtd_janelas_limite" onchange="recalcularJanelasHorarias()" required>
+                                    <option value="4">4 Janelas</option>
+                                    <option value="6">6 Janelas</option>
+                                    <option value="8">8 Janelas</option>
+                                    <option value="12" selected>12 Janelas</option>
+                                    <option value="16">16 Janelas</option>
+                                    <option value="24">24 Janelas</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="d-grid mt-4">
@@ -119,12 +132,12 @@ HTML_INTERFACE = """
         <div class="col-lg-7">
             <div class="card card-custom">
                 <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
-                    <span>⏱️ Definição de Vagas por Janela Operacional</span>
+                    <span>⏱️ Distribuição Inteligente de Vagas</span>
                     <span class="badge bg-secondary" id="balsa_titulo_grade">Nenhuma balsa selecionada</span>
                 </div>
                 <div class="card-body">
                     <p class="small text-muted mb-3">
-                        Defina a quantidade de vagas livres para o cliente em cada horário. O sistema validará se o total não extrapola a capacidade máxima da balsa.
+                        As vagas foram calculadas e divididas igualmente entre as janelas abertas para atingir o teto operacional. Modifique os valores se achar necessário.
                     </p>
 
                     <div id="status_container" class="status-badge alert-secondary mb-3">
@@ -146,15 +159,14 @@ HTML_INTERFACE = """
                     <tr>
                         <th>Balsa</th>
                         <th>Data Vigência</th>
-                        <th>Início Operação</th>
-                        <th>Frequência</th>
-                        <th>Capacidade M³</th>
-                        <th>Total Vagas Alocadas</th>
+                        <th>Início</th>
+                        <th>Configuração da Grade</th>
+                        <th>Total Vagas Distribuídas</th>
                     </tr>
                 </thead>
                 <tbody id="tabela_ofertas">
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-3">Nenhuma regra de disponibilidade cadastrada até o momento.</td>
+                        <td colspan="5" class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</td>
                     </tr>
                 </tbody>
             </table>
@@ -163,20 +175,26 @@ HTML_INTERFACE = """
 
 <script>
     const bancoBalsas = {{ dicionario_balsas | tojson }};
-    let metaMaxxima = 0;
+    let metaAtual = 0;
 
     function recalcularJanelasHorarias() {
         const horaInput = document.getElementById('hora_inicio_operacao').value || "00:00";
         const freqHoras = parseInt(document.getElementById('frequencia_horas').value) || 2;
+        const totalJanelasDesejadas = parseInt(document.getElementById('qtd_janelas_limite').value) || 12;
         const container = document.getElementById('grid_janelas_container');
         
         let [horas, minutos] = horaInput.split(':').map(Number);
         container.innerHTML = "";
 
-        // Calcula quantas janelas cabem no dia com base na frequência escolhida
-        let totalJanelasNoDia = Math.floor(24 / freqHoras);
+        // CALCULO AUTOMÁTICO DE QUANTAS VAGAS DEVE TER POR JANELA COM BASE NA META DA BALSA
+        let vagasSugeridasPorJanela = 0;
+        let restoVagas = 0;
+        if (metaAtual > 0) {
+            vagasSugeridasPorJanela = Math.floor(metaAtual / totalJanelasDesejadas);
+            restoVagas = metaAtual % totalJanelasDesejadas;
+        }
 
-        for (let i = 0; i < totalJanelasNoDia; i++) {
+        for (let i = 0; i < totalJanelasDesejadas; i++) {
             let hInicio = String(horas).padStart(2, '0');
             let mInicio = String(minutos).padStart(2, '0');
             
@@ -188,13 +206,19 @@ HTML_INTERFACE = """
             let faixaFormatada = `${hInicio}:${mInicio} - ${hFim}:${mFim}`;
             let estaDesabilitado = document.getElementById('balsa_selecionada').value ? "" : "disabled";
 
+            // Distribui o valor padrão calculado e soma o resto na primeira janela
+            let valorPadraoJanela = vagasSugeridasPorJanela;
+            if (i === 0) {
+                valorPadraoJanela += restoVagas;
+            }
+
             container.innerHTML += `
                 <div class="col-sm-4 col-md-3">
                     <div class="box-janela">
                         <span class="d-block small text-muted fw-bold mb-1">Janela #${i + 1}</span>
                         <span class="d-block extra-small text-dark mb-2" style="font-size:11px; font-weight: 600;">${faixaFormatada}</span>
                         <input type="number" class="form-control form-control-sm input-cota" 
-                               id="j_${i}" min="0" value="0" ${estaDesabilitado}
+                               id="j_${i}" min="0" value="${estaDesabilitado ? 0 : valorPadraoJanela}" ${estaDesabilitado}
                                oninput="calcularConsumoCotas()">
                     </div>
                 </div>`;
@@ -205,21 +229,21 @@ HTML_INTERFACE = """
     function atualizarDadosMetricas() {
         const balsa = document.getElementById('balsa_selecionada').value;
         if(balsa && bancoBalsas[balsa]) {
-            metaMaxxima = bancoBalsas[balsa].cts_meta;
+            metaAtual = bancoBalsas[balsa].cts_meta;
             document.getElementById('cap_display').value = bancoBalsas[balsa].capacidade;
-            document.getElementById('cts_display').value = metaMaxxima + " CTS Máx";
-            document.getElementById('balsa_titulo_grade').innerText = `${balsa} (Limite Máx: ${metaMaxxima} CTS)`;
+            document.getElementById('cts_display').value = metaAtual + " CTS Obrigatórios";
+            document.getElementById('balsa_titulo_grade').innerText = `${balsa} (Meta total da balsa: ${metaAtual} CTS)`;
             
-            document.querySelectorAll('.input-cota').forEach(input => input.disabled = false);
-            calcularConsumoCotas();
+            recalcularJanelasHorarias();
         } else {
-            metaMaxxima = 0;
+            metaAtual = 0;
             document.getElementById('cap_display').value = "";
             document.getElementById('cts_display').value = "";
             document.getElementById('balsa_titulo_grade').innerText = "Nenhuma balsa selecionada";
-            document.querySelectorAll('.input-cota').forEach(input => { input.value = 0; input.disabled = true; });
+            container.innerHTML = "";
             document.getElementById('status_container').className = "status-badge alert-secondary mb-3";
             document.getElementById('status_container').innerText = "Aguardando seleção da balsa...";
+            recalcularJanelasHorarias();
         }
     }
 
@@ -230,14 +254,17 @@ HTML_INTERFACE = """
         });
 
         const statusBox = document.getElementById('status_container');
-        if (metaMaxxima === 0) return;
+        if (metaAtual === 0) return;
         
-        if (totalDigitado <= metaMaxxima) {
+        if (totalDigitado === metaAtual) {
             statusBox.className = "status-badge bg-success text-white mb-3";
-            statusBox.innerText = `✅ Liberado! Você distribuiu ${totalDigitado} de ${metaMaxxima} vagas totais suportadas pela balsa.`;
-        } else {
+            statusBox.innerText = `✅ Perfeito! Grade de vagas balanceada em exatamente ${totalDigitado} de ${metaAtual} CTS.`;
+        } else if (totalDigitado > metaAtual) {
             statusBox.className = "status-badge bg-danger text-white mb-3";
-            statusBox.innerText = `⚠️ Atenção! O total de vagas digitadas (${totalDigitado} CTS) ultrapassa o limite estrutural da balsa (${metaMaxxima} CTS). Reduza as vagas.`;
+            statusBox.innerText = `⚠️ Atenção! O somatório atual deu ${totalDigitado} CTS. Você ultrapassou a meta da balsa que é de ${metaAtual} CTS.`;
+        } else {
+            statusBox.className = "status-badge bg-warning text-dark mb-3";
+            statusBox.innerText = `📊 Alocado: ${totalDigitado} de ${metaAtual} CTS. Faltam ${metaAtual - totalDigitado} CTS para completar a meta da balsa.`;
         }
     }
 
@@ -248,8 +275,8 @@ HTML_INTERFACE = """
             totalDigitado += parseInt(input.value) || 0;
         });
 
-        if (totalDigitado > metaMaxxima) {
-            alert(`Erro: O total de vagas (${totalDigitado}) não pode ser maior que o limite da balsa (${metaMaxxima}).`);
+        if (totalDigitado !== metaAtual) {
+            alert(`Impossível salvar: A soma das janelas deu ${totalDigitado} CTS, mas a balsa selecionada exige exatamente ${metaAtual} CTS.`);
             return;
         }
 
@@ -257,8 +284,7 @@ HTML_INTERFACE = """
             balsa: document.getElementById('balsa_selecionada').value,
             data: document.getElementById('data_vigencia').value,
             hora_inicio: document.getElementById('hora_inicio_operacao').value,
-            frequencia: document.getElementById('frequencia_horas').value + "h",
-            capacidade: document.getElementById('cap_display').value,
+            config: document.getElementById('qtd_janelas_limite').value + " janelas de " + document.getElementById('frequencia_horas').value + "h",
             total_vagas: totalDigitado
         };
 
@@ -269,11 +295,10 @@ HTML_INTERFACE = """
         })
         .then(res => res.json())
         .then(data => {
-            alert("Disponibilidade de janelas e vagas salva com sucesso!");
+            alert("Módulo 1 Finalizado! Grade operacional implantada.");
             atualizarTabelaOfertas(data);
             document.getElementById('formOferta').reset();
             atualizarDadosMetricas();
-            recalcularJanelasHorarias();
         });
     }
 
@@ -286,9 +311,8 @@ HTML_INTERFACE = """
                 <td><b>${item.balsa}</b></td>
                 <td>${item.data}</td>
                 <td><span class="badge bg-dark">${item.hora_inicio}h</span></td>
-                <td><span class="badge bg-info">A cada ${item.frequencia}</span></td>
-                <td>${item.capacidade}</td>
-                <td><span class="badge bg-success">${item.total_vagas} Vagas Criadas</span></td>
+                <td><span class="badge bg-info">${item.config}</span></td>
+                <td><span class="badge bg-success">${item.total_vagas} CTS Alocados</span></td>
             </tr>`;
         });
     }
