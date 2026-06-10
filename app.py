@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 # Configuração da página para ocupar a tela cheia
 st.set_page_config(
-    page_title="Zion Tecnologia - Controle Logistico Inteligente",
+    page_title="Zion Tecnologia - Controle de Pátio",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -75,15 +75,14 @@ st.markdown("""
             font-weight: bold;
         }
         
-        /* Injeção de estilo para o botão Verde de Salvar (via seletor de atributo key) */
-        div[data-testid="stButton"] button[key^="save_btn_"] {
+        /* CSS para forçar a cor verde no botão que contém o disquete de salvar */
+        div[data-testid="stButton"] button:has(div:contains("💾")) {
             background-color: #28a745 !important;
             color: white !important;
             border: 1px solid #1e7e34 !important;
             font-weight: bold !important;
-            width: 100%;
         }
-        div[data-testid="stButton"] button[key^="save_btn_"]:hover {
+        div[data-testid="stButton"] button:has(div:contains("💾")):hover {
             background-color: #218838 !important;
             color: white !important;
         }
@@ -336,9 +335,7 @@ with tab_modulo1:
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --------------------------------------------------------------------------
-    # VISUALIZAÇÃO SOLICITADA: AGENDADOS (VISÃO TOTAL AMPLA NA GD)
-    # --------------------------------------------------------------------------
+    # Nova seção de Agendados ampla na aba 1
     st.markdown('<p class="titulo-secao">📋 AGENDADOS</p>', unsafe_allow_html=True)
     with st.container():
         st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
@@ -447,11 +444,12 @@ with tab_modulo2:
                 st.info("Nenhum caminhão agendado para esta programação até o momento.")
             else:
                 for idx, ag in enumerate(st.session_state.db_agendamentos):
-                    # Se esta linha estiver ativa para edição, desenha os inputs inline
+                    
+                    # Verificação se a linha atual está em modo de Edição
                     if st.session_state.edit_index == idx:
                         st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
                         
-                        c_ed1, c_ed2, c_ed3 = st.columns(3)
+                        c_ed1, c_ed2, c_ed3 = st.columns([4, 4, 2])
                         with c_ed1:
                             ed_placa = st.text_input("PLACA", value=ag["placa"], key=f"ed_placa_{idx}")
                             ed_motorista = st.text_input("MOTORISTA", value=ag["motorista"], key=f"ed_moto_{idx}")
@@ -461,32 +459,34 @@ with tab_modulo2:
                         with c_ed3:
                             ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), format="%.2f", key=f"ed_vol_{idx}")
                             ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
-                        
-                        # Botão Salvar nativo customizado com a cor verde via CSS
-                        if st.button("✔ SALVAR ALTERAÇÕES", key=f"save_btn_{idx}", use_container_width=True):
-                            st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
-                            st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
-                            st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
-                            st.session_state.db_agendamentos[idx]["nf"] = ed_nf
-                            st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
-                            st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
                             
-                            st.session_state.edit_index = -1  # Desativa o modo edição
-                            st.toast("Alterações salvas com sucesso!", icon="✨")
-                            st.rerun()
+                            # Botão Salvar lateralizado com ícone de disquete (Fica verde via CSS injetado)
+                            st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                            if st.button("💾 Salvar", key=f"save_btn_{idx}", use_container_width=True):
+                                st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
+                                st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
+                                st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
+                                st.session_state.db_agendamentos[idx]["nf"] = ed_nf
+                                st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
+                                st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
+                                
+                                st.session_state.edit_index = -1  # Desativa o modo de edição
+                                st.toast("Alterações salvas com sucesso!", icon="✨")
+                                st.rerun()
                     else:
-                        # Exibição normal com o botão Editar perfeitamente ao lado
+                        # Modo de exibição tradicional em linha
                         c_row1, c_row2 = st.columns([8, 2])
                         with c_row1:
                             st.markdown(f"""
-                            <div style="background-color:#f8f9fa; padding:10px; border-radius:4px; border-left:4px solid #0d6efd; font-size:12px;">
+                            <div style="background-color:#f8f9fa; padding:10px; border-radius:4px; border-left:4px solid #0d6efd; font-size:12px; line-height: 1.6;">
                                 <strong>BALSA:</strong> {ag['balsa']} | <strong>DATA:</strong> {ag['data']} | <strong>HORÁRIO:</strong> {ag['janela']} <br>
                                 <strong>PLACA:</strong> {ag['placa']} | <strong>VEÍCULO:</strong> {ag['veiculo']} | <strong>MOTORISTA:</strong> {ag['motorista']} <br>
                                 <strong>Nº NF:</strong> {ag['nf']} | <strong>VOLUME:</strong> {float(ag['volume']):.2f} m³ | <strong>PRODUTO:</strong> {ag['produto']} | <strong>ANEXO:</strong> {ag['arquivo_nome']}
                             </div>
                             """, unsafe_allow_html=True)
                         with c_row2:
-                            st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
+                            st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+                            # Botão de edição tradicional lateralizado com ícone de caneta
                             if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
                                 st.session_state.edit_index = idx
                                 st.rerun()
