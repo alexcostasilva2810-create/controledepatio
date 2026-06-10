@@ -19,7 +19,7 @@ BALSAS_OPERACIONAIS = {
     "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24},
+    "SD XIV": {"capacidade": "1468.8 m³", "24": 24},
     "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
@@ -42,7 +42,7 @@ HTML_INTERFACE = """
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root { --primary: #0f172a; --accent: #deff9a; --text-light: #daffde; }
+        :root { --primary: #0f172a; --accent: #deff9a; }
         body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, sans-serif; padding: 25px; }
         .navbar-top { background-color: var(--primary); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; border-bottom: 4px solid var(--accent); }
         .card-custom { border: none; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); background: white; overflow: hidden; }
@@ -54,6 +54,7 @@ HTML_INTERFACE = """
         .status-badge { font-size: 15px; font-weight: 700; padding: 15px; border-radius: 8px; display: block; text-align: center; margin-bottom: 20px; }
         .label-custom { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
         .badge-meta { background: var(--primary); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-size: 12px; }
+        .btn-edit { padding: 4px 10px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -63,7 +64,7 @@ HTML_INTERFACE = """
             <h4 class="m-0 fw-bold"><i class="fa-solid fa-anchor me-2"></i>SISTEMA DE AGENDAMENTO LOGÍSTICO</h4>
             <small style="color: var(--accent);">Painel de Criação de Disponibilidade - Zion Tecnologia</small>
         </div>
-        <span class="badge bg-light text-dark px-3 py-2 fw-bold">USUÁRIO: GESTÃO (GD)</span>
+        <span class="badge bg-light text-dark px-3 py-2 fw-bold">MÓDULO 1: DISPONIBILIDADE</span>
     </div>
 
     <div class="row g-4">
@@ -72,6 +73,7 @@ HTML_INTERFACE = """
                 <div class="card-header card-header-custom"><i class="fa-solid fa-sliders me-2"></i>Configuração da Oferta</div>
                 <div class="card-body p-4">
                     <form id="formOferta" onsubmit="salvarOperacao(event)">
+                        <input type="hidden" id="edit_index" value="-1">
                         
                         <div class="mb-4">
                             <label class="label-custom">Balsa / Embarcação Disponível</label>
@@ -108,12 +110,11 @@ HTML_INTERFACE = """
                         <div class="mb-4">
                             <label class="label-custom text-danger">Quantidade de Janelas a Disponibilizar</label>
                             <select class="form-select fw-bold border-danger" id="num_janelas" onchange="gerarGradeJanelas()" required>
-                                </select>
-                            <small class="text-muted mt-1 d-block">Defina quantas janelas o cliente verá no portal.</small>
+                            </select>
                         </div>
 
                         <div class="d-grid pt-2">
-                            <button type="submit" class="btn btn-dark btn-lg fw-bold"><i class="fa-solid fa-cloud-arrow-up me-2"></i>PUBLICAR DISPONIBILIDADE</button>
+                            <button type="submit" class="btn btn-dark btn-lg fw-bold" id="btn_submit"><i class="fa-solid fa-cloud-arrow-up me-2"></i>PUBLICAR DISPONIBILIDADE</button>
                         </div>
                     </form>
                 </div>
@@ -127,25 +128,46 @@ HTML_INTERFACE = """
                     <span id="meta_badge" class="badge-meta">Aguardando balsa...</span>
                 </div>
                 <div class="card-body p-4">
-                    
                     <div id="status_alocacao" class="status-badge alert-secondary">
                         Selecione os parâmetros ao lado para gerar a grade.
                     </div>
-
-                    <div class="row g-3" id="grade_container">
-                        </div>
+                    <div class="row g-3" id="grade_container"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="card card-custom mt-4 shadow">
+        <div class="card-header card-header-custom text-white bg-secondary"><i class="fa-solid fa-list-check me-2"></i>Painel de Ofertas Vigentes no Sistema</div>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle m-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Balsa</th>
+                        <th>Data Vigência</th>
+                        <th>Início</th>
+                        <th>Janelas Operacionais</th>
+                        <th>Total Vagas Alocadas</th>
+                        <th class="text-center" style="width: 100px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela_ofertas">
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
 <script>
     const dataBalsas = {{ dicionario_balsas | tojson }};
     let metaNecessaria = 0;
+    let dadosTemporariosEdicao = null;
 
-    // Popular o seletor de 6 a 24 janelas
     function initJanelasSelect() {
         const sel = document.getElementById('num_janelas');
+        sel.innerHTML = "";
         for (let i = 6; i <= 24; i++) {
             let opt = document.createElement('option');
             opt.value = i;
@@ -176,7 +198,6 @@ HTML_INTERFACE = """
         container.innerHTML = "";
         let [h, m] = horaBase.split(':').map(Number);
 
-        // CALCULO DE VAGAS SUGERIDAS (Meta / Janelas)
         let baseVagas = Math.floor(metaNecessaria / totalJanelas);
         let sobra = metaNecessaria % totalJanelas;
 
@@ -184,14 +205,17 @@ HTML_INTERFACE = """
             let hIni = String(h).padStart(2, '0');
             let mIni = String(m).padStart(2, '0');
             
-            // Incremento de 1 hora por janela para cobrir o range
             h = (h + 1) % 24;
             
             let hFim = String(h).padStart(2, '0');
             let mFim = String(m).padStart(2, '0');
 
-            // Distribui a sobra na primeira janela
             let valorSugerido = baseVagas + (i === 0 ? sobra : 0);
+            
+            // Se estamos editando, tenta recuperar o valor manual previamente salvo naquela posição
+            if (dadosTemporariosEdicao && dadosTemporariosEdicao[i] !== undefined) {
+                valorSugerido = dadosTemporariosEdicao[i];
+            }
 
             container.innerHTML += `
                 <div class="col-md-3 col-sm-6">
@@ -199,11 +223,12 @@ HTML_INTERFACE = """
                         <label class="label-custom">JANELA #${i+1}</label>
                         <div class="fw-bold mb-2 small" style="color:#2c74b3;">${hIni}:${mIni} às ${hFim}:${mFim}</div>
                         <input type="number" class="form-control input-cota" 
-                               value="${valorSugerido}" min="0" 
+                               id="vaga_j_${i}" value="${valorSugerido}" min="0" 
                                oninput="validarSaldo()">
                     </div>
                 </div>`;
         }
+        dadosTemporariosEdicao = null; // Limpa o cache após renderizar
         validarSaldo();
     }
 
@@ -227,25 +252,120 @@ HTML_INTERFACE = """
         }
     }
 
+    function formatarDataBR(dataISO) {
+        if(!dataISO) return "";
+        const [ano, mes, dia] = dataISO.split('-');
+        return `${dia}/${mes}/${ano}`;
+    }
+
     function salvarOperacao(event) {
         event.preventDefault();
         let total = 0;
-        document.querySelectorAll('.input-cota').forEach(i => total += parseInt(i.value) || 0);
+        let valoresJanelas = [];
+        document.querySelectorAll('.input-cota').forEach(i => {
+            let val = parseInt(i.value) || 0;
+            total += val;
+            valoresJanelas.push(val);
+        });
 
         if(total !== metaNecessaria) {
             alert("Atenção: A soma das vagas por janela deve ser exatamente igual à meta da balsa!");
             return;
         }
 
-        alert("SUCESSO: Disponibilidade publicada! O cliente FS já pode visualizar estas janelas no portal.");
+        const index = parseInt(document.getElementById('edit_index').value);
+        const dadosForm = {
+            balsa: document.getElementById('balsa_id').value,
+            data: document.getElementById('data_op').value,
+            hora_inicio: document.getElementById('hora_inicio').value,
+            num_janelas: document.getElementById('num_janelas').value,
+            total_vagas: total,
+            janelas_detalhe: valoresJanelas
+        };
+
+        fetch('/api/salvar_disponibilidade', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ index: index, dados: dadosForm })
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert(index === -1 ? "Disponibilidade publicada com sucesso!" : "Registro atualizado com sucesso!");
+            atualizarTabela(data);
+            resetarFormularioCompleto();
+        });
     }
 
-    window.onload = initJanelasSelect;
+    function resetarFormularioCompleto() {
+        document.getElementById('formOferta').reset();
+        document.getElementById('edit_index').value = "-1";
+        document.getElementById('btn_submit').innerHTML = `<i class="fa-solid fa-cloud-arrow-up me-2"></i>PUBLICAR DISPONIBILIDADE`;
+        metaNecessaria = 0;
+        document.getElementById('meta_badge').innerHTML = "Aguardando balsa...";
+        document.getElementById('grade_container').innerHTML = "";
+        document.getElementById('status_alocacao').className = "status-badge alert-secondary";
+        document.getElementById('status_alocacao').innerHTML = "Selecione os parâmetros ao lado para gerar a grade.";
+        initJanelasSelect();
+    }
+
+    function editarRegistro(index) {
+        fetch(`/api/obter_registro/${index}`)
+        .then(res => res.json())
+        .then(item => {
+            document.getElementById('edit_index').value = index;
+            document.getElementById('balsa_id').value = item.balsa;
+            metaNecessaria = dataBalsas[item.balsa].cts_meta;
+            
+            document.getElementById('cap_view').value = dataBalsas[item.balsa].capacidade;
+            document.getElementById('cts_view').value = metaNecessaria + " CTS";
+            document.getElementById('meta_badge').innerHTML = `EDITANDO - META: ${metaNecessaria} CTS`;
+            
+            document.getElementById('data_op').value = item.data;
+            document.getElementById('hora_inicio').value = item.hora_inicio;
+            document.getElementById('num_janelas').value = item.num_janelas;
+            
+            dadosTemporariosEdicao = item.janelas_detalhe;
+            document.getElementById('btn_submit').innerHTML = `<i class="fa-solid fa-floppy-disk me-2"></i>SALVAR ALTERAÇÕES`;
+            
+            gerarGradeJanelas();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+
+    function atualizarTabela(lista) {
+        const tbody = document.getElementById('tabela_ofertas');
+        if(!lista || lista.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = "";
+        lista.forEach((item, idx) => {
+            tbody.innerHTML += `<tr>
+                <td><b>${item.balsa}</b></td>
+                <td><span class="badge bg-light text-dark fw-bold" style="font-size:13px;">${formatarDataBR(item.data)}</span></td>
+                <td><span class="badge bg-dark">${item.hora_inicio}h</span></td>
+                <td><span class="badge bg-info text-dark">${item.num_janelas} Janelas</span></td>
+                <td><span class="badge bg-success">${item.total_vagas} CTS Alocados</span></td>
+                <td class="text-center">
+                    <button class="btn btn-warning btn-sm btn-edit fw-bold" onclick="editarRegistro(${idx})">
+                        <i class="fa-solid fa-pencil"></i> Editar
+                    </button>
+                </td>
+            </tr>`;
+        });
+    }
+
+    window.onload = function() {
+        initJanelasSelect();
+    };
 </script>
 </body>
 </html>
 """
 
+# ==============================================================================
+# ENDPOINTS API (GERENCIAMENTO E SALVAMENTO COM ÍNDICE DE EDIÇÃO)
+# ==============================================================================
 @app.route('/')
 def index():
     return render_template_string(
@@ -253,6 +373,25 @@ def index():
         lista_balsas=sorted(BALSAS_OPERACIONAIS.keys()), 
         dicionario_balsas=BALSAS_OPERACIONAIS
     )
+
+@app.route('/api/salvar_disponibilidade', methods=['POST'])
+def api_salvar():
+    req = request.json
+    index = int(req.get('index', -1))
+    dados = req.get('dados')
+    
+    if index == -1:
+        DISPONIBILIDADES_DB.append(dados)
+    else:
+        DISPONIBILIDADES_DB[index] = dados
+        
+    return jsonify(DISPONIBILIDADES_DB)
+
+@app.route('/api/obter_registro/<int:index>', methods=['GET'])
+def api_obter(index):
+    if 0 <= index < len(DISPONIBILIDADES_DB):
+        return jsonify(DISPONIBILIDADES_DB[index])
+    return jsonify({}), 404
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
