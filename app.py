@@ -75,19 +75,45 @@ st.markdown("""
             font-weight: bold;
         }
         
-        /* CSS para forçar a cor verde no botão que contém o disquete de salvar */
-        div[data-testid="stButton"] button:has(div:contains("💾")) {
-            background-color: #28a745 !important;
-            color: white !important;
-            border: 1px solid #1e7e34 !important;
-            font-weight: bold !important;
+        /* Cabeçalho fake para simular tabela perfeitamente alinhada */
+        .table-header-custom {
+            background-color: #f1f3f5;
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 11px;
+            color: #495057;
+            text-transform: uppercase;
+            text-align: left;
+            margin-bottom: 8px;
         }
-        div[data-testid="stButton"] button:has(div:contains("💾")):hover {
-            background-color: #218838 !important;
-            color: white !important;
+        
+        /* Alinhamento de dados verticais das linhas */
+        .cell-data {
+            font-size: 12px;
+            color: #212529;
+            padding-top: 8px;
+        }
+        
+        /* Ajuste do botão de download de NF para parecer um link limpo */
+        div[data-testid="stDownloadButton"] button {
+            padding: 2px 8px !important;
+            font-size: 11px !important;
+            background-color: #e2e8f0 !important;
+            color: #4a5568 !important;
+            border: 1px solid #cbd5e0 !important;
+            border-radius: 4px !important;
+        }
+        div[data-testid="stDownloadButton"] button:hover {
+            background-color: #cbd5e0 !important;
+            color: #2d3748 !important;
         }
     </style>
 """, unsafe_allow_html=True)
+
+# Helper para gerar um arquivo PDF em branco simulado para a NF
+def gerar_pdf_simulado():
+    return b"%PDF-1.4 ... Conteudo simulado da Nota Fiscal Zion Tecnologia ..."
 
 # ==============================================================================
 # BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
@@ -130,7 +156,7 @@ BALSAS_OPERACIONAIS = {
     "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
+    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XVII": {"capacidade": "1468.8 m³", "qs_meta": 24},
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
@@ -335,29 +361,57 @@ with tab_modulo1:
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Nova seção de Agendados ampla na aba 1
-    st.markdown('<p class="titulo-secao">📋 AGENDADOS</p>', unsafe_allow_html=True)
+    # ==============================================================================
+    # SEÇÃO DE AGENDADOS NO MÓDULO 1 EM LINHA COM COLUNAS ALINHADAS E DOWNLOAD DE NF
+    # ==============================================================================
+    st.markdown('<p class="titulo-secao">📋 VEÍCULOS AGENDADOS (Visão Geral de Portaria)</p>', unsafe_allow_html=True)
     with st.container():
         st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
         if not st.session_state.db_agendamentos:
             st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhum veículo agendado no sistema até o momento.</div>', unsafe_allow_html=True)
         else:
-            lista_gd_agendados = []
-            for ag in st.session_state.db_agendamentos:
-                lista_gd_agendados.append({
-                    "BALSA": ag["balsa"],
-                    "DATA": ag["data"],
-                    "HORÁRIO": ag["janela"],
-                    "PLACA": ag["placa"],
-                    "VEÍCULO": ag["veiculo"],
-                    "MOTORISTA": ag["motorista"],
-                    "Nº NF": ag["nf"],
-                    "VOLUME M³": f"{float(ag['volume']):.2f} m³",
-                    "PRODUTO": ag["produto"],
-                    "ANEXO NF": ag["arquivo_nome"]
-                })
-            df_gd_view = pd.DataFrame(lista_gd_agendados)
-            st.dataframe(df_gd_view, use_container_width=True, hide_index=True)
+            # Cabeçalho da tabela simulado em colunas nativas do Streamlit
+            st.markdown("""
+                <div class="table-header-custom">
+                    <table style="width: 100%; border-collapse: collapse; border: none; background: transparent;">
+                        <tr>
+                            <td style="width: 9.5%;">Balsa</td>
+                            <td style="width: 9.5%;">Data</td>
+                            <td style="width: 11.5%;">Horário</td>
+                            <td style="width: 9.5%;">Placa</td>
+                            <td style="width: 9.5%;">Veículo</td>
+                            <td style="width: 13.5%;">Motorista</td>
+                            <td style="width: 9.5%;">Nº NF</td>
+                            <td style="width: 9.5%;">Volume</td>
+                            <td style="width: 9.5%;">Produto</td>
+                            <td style="width: 8.5%;">Anexo NF</td>
+                        </tr>
+                    </table>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            for idx, ag in enumerate(st.session_state.db_agendamentos):
+                cols_m1 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.4, 1.0, 1.0, 1.0, 0.9])
+                
+                cols_m1[0].markdown(f'<div class="cell-data"><b>{ag["balsa"]}</b></div>', unsafe_allow_html=True)
+                cols_m1[1].markdown(f'<div class="cell-data">{ag["data"]}</div>', unsafe_allow_html=True)
+                cols_m1[2].markdown(f'<div class="cell-data" style="color:#0d6efd;font-weight:600;">{ag["janela"]}</div>', unsafe_allow_html=True)
+                cols_m1[3].markdown(f'<div class="cell-data">`{ag["placa"]}`</div>', unsafe_allow_html=True)
+                cols_m1[4].markdown(f'<div class="cell-data">{ag["veiculo"]}</div>', unsafe_allow_html=True)
+                cols_m1[5].markdown(f'<div class="cell-data">{ag["motorista"]}</div>', unsafe_allow_html=True)
+                cols_m1[6].markdown(f'<div class="cell-data">{ag["nf"]}</div>', unsafe_allow_html=True)
+                cols_m1[7].markdown(f'<div class="cell-data">{float(ag["volume"]):.2f} m³</div>', unsafe_allow_html=True)
+                cols_m1[8].markdown(f'<div class="cell-data">{ag["produto"]}</div>', unsafe_allow_html=True)
+                
+                with cols_m1[9]:
+                    st.download_button(
+                        label="📄 PDF",
+                        data=gerar_pdf_simulado(),
+                        file_name=ag["arquivo_nome"],
+                        mime="application/pdf",
+                        key=f"m1_down_{idx}"
+                    )
+                st.markdown("<div style='border-bottom: 1px solid #f1f3f5; margin: 4px 0;'></div>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
@@ -435,6 +489,9 @@ with tab_modulo2:
                         st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
+    # ==============================================================================
+    # COMPROVANTES DE AGENDAMENTO EM LINHA COM COLUNAS ALINHADAS, BOTÃO E DOWNLOAD NO MÓDULO 2
+    # ==============================================================================
     with col_fs_dir:
         st.markdown('<p class="titulo-secao">📜 Comprovantes de Agendamento Emitidos</p>', unsafe_allow_html=True)
         with st.container():
@@ -443,13 +500,35 @@ with tab_modulo2:
             if not st.session_state.db_agendamentos:
                 st.info("Nenhum caminhão agendado para esta programação até o momento.")
             else:
+                # Caso não esteja editando nenhuma linha, exibe o cabeçalho global das colunas
+                if st.session_state.edit_index == -1:
+                    st.markdown("""
+                        <div class="table-header-custom">
+                            <table style="width: 100%; border-collapse: collapse; border: none; background: transparent;">
+                                <tr>
+                                    <td style="width: 10%;">Balsa</td>
+                                    <td style="width: 10%;">Data</td>
+                                    <td style="width: 12%;">Horário</td>
+                                    <td style="width: 10%;">Placa</td>
+                                    <td style="width: 10%;">Veículo</td>
+                                    <td style="width: 13%;">Motorista</td>
+                                    <td style="width: 10%;">Nº NF</td>
+                                    <td style="width: 9%;">Volume</td>
+                                    <td style="width: 8%;">Produto</td>
+                                    <td style="width: 8%;">NF File</td>
+                                    <td style="width: 10%;">Ações</td>
+                                </tr>
+                            </table>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
                 for idx, ag in enumerate(st.session_state.db_agendamentos):
                     
                     # Verificação se a linha atual está em modo de Edição
                     if st.session_state.edit_index == idx:
-                        st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px; font-size:12px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
                         
-                        c_ed1, c_ed2, c_ed3 = st.columns([4, 4, 2])
+                        c_ed1, c_ed2, c_ed3, c_ed4 = st.columns([3, 3, 3, 1.5])
                         with c_ed1:
                             ed_placa = st.text_input("PLACA", value=ag["placa"], key=f"ed_placa_{idx}")
                             ed_motorista = st.text_input("MOTORISTA", value=ag["motorista"], key=f"ed_moto_{idx}")
@@ -459,10 +538,9 @@ with tab_modulo2:
                         with c_ed3:
                             ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), format="%.2f", key=f"ed_vol_{idx}")
                             ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
-                            
-                            # Botão Salvar lateralizado com ícone de disquete (Fica verde via CSS injetado)
+                        with c_ed4:
                             st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-                            if st.button("💾 Salvar", key=f"save_btn_{idx}", use_container_width=True):
+                            if st.button("💾 Salvar", key=f"save_btn_{idx}", use_container_width=True, type="primary"):
                                 st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
                                 st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
                                 st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
@@ -474,23 +552,35 @@ with tab_modulo2:
                                 st.toast("Alterações salvas com sucesso!", icon="✨")
                                 st.rerun()
                     else:
-                        # Modo de exibição tradicional em linha
-                        c_row1, c_row2 = st.columns([8, 2])
-                        with c_row1:
-                            st.markdown(f"""
-                            <div style="background-color:#f8f9fa; padding:10px; border-radius:4px; border-left:4px solid #0d6efd; font-size:12px; line-height: 1.6;">
-                                <strong>BALSA:</strong> {ag['balsa']} | <strong>DATA:</strong> {ag['data']} | <strong>HORÁRIO:</strong> {ag['janela']} <br>
-                                <strong>PLACA:</strong> {ag['placa']} | <strong>VEÍCULO:</strong> {ag['veiculo']} | <strong>MOTORISTA:</strong> {ag['motorista']} <br>
-                                <strong>Nº NF:</strong> {ag['nf']} | <strong>VOLUME:</strong> {float(ag['volume']):.2f} m³ | <strong>PRODUTO:</strong> {ag['produto']} | <strong>ANEXO:</strong> {ag['arquivo_nome']}
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with c_row2:
-                            st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-                            # Botão de edição tradicional lateralizado com ícone de caneta
+                        # Modo de exibição tradicional Alinhado perfeitamente em Colunas Nativas
+                        cols_m2 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.3, 1.0, 0.9, 0.8, 0.8, 1.0])
+                        
+                        cols_m2[0].markdown(f'<div class="cell-data"><b>{ag["balsa"]}</b></div>', unsafe_allow_html=True)
+                        cols_m2[1].markdown(f'<div class="cell-data">{ag["data"]}</div>', unsafe_allow_html=True)
+                        cols_m2[2].markdown(f'<div class="cell-data" style="color:#0d6efd;font-weight:600;">{ag["janela"]}</div>', unsafe_allow_html=True)
+                        cols_m2[3].markdown(f'<div class="cell-data">`{ag["placa"]}`</div>', unsafe_allow_html=True)
+                        cols_m2[4].markdown(f'<div class="cell-data">{ag["veiculo"]}</div>', unsafe_allow_html=True)
+                        cols_m2[5].markdown(f'<div class="cell-data">{ag["motorista"]}</div>', unsafe_allow_html=True)
+                        cols_m2[6].markdown(f'<div class="cell-data">{ag["nf"]}</div>', unsafe_allow_html=True)
+                        cols_m2[7].markdown(f'<div class="cell-data">{float(ag["volume"]):.2f} m³</div>', unsafe_allow_html=True)
+                        cols_m2[8].markdown(f'<div class="cell-data">{ag["produto"]}</div>', unsafe_allow_html=True)
+                        
+                        # Coluna de Download do PDF da NF
+                        with cols_m2[9]:
+                            st.download_button(
+                                label="📄 PDF",
+                                data=gerar_pdf_simulado(),
+                                file_name=ag["arquivo_nome"],
+                                mime="application/pdf",
+                                key=f"m2_down_{idx}"
+                            )
+                            
+                        # Coluna do Botão de Edição
+                        with cols_m2[10]:
                             if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
                                 st.session_state.edit_index = idx
                                 st.rerun()
                                 
-                    st.markdown("<hr style='margin:10px 0; border-color:#e9ecef;'>", unsafe_allow_html=True)
+                    st.markdown("<div style='border-bottom: 1px solid #e9ecef; margin: 4px 0;'></div>", unsafe_allow_html=True)
                     
             st.markdown('</div>', unsafe_allow_html=True)
