@@ -74,6 +74,18 @@ st.markdown("""
             text-align: center !important;
             font-weight: bold;
         }
+        
+        /* Customização estrita para o botão Verde de Salvar */
+        div.stButton > button.botao-salvar-verde {
+            background-color: #28a745 !important;
+            color: white !important;
+            border: 1px solid #1e7e34 !important;
+            font-weight: bold !important;
+        }
+        div.stButton > button.botao-salvar-verde:hover {
+            background-color: #218838 !important;
+            color: white !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -111,28 +123,17 @@ if "edit_index" not in st.session_state:
     st.session_state.edit_index = -1
 
 BALSAS_OPERACIONAIS = {
-    "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17},
-    "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
-    "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24},
-    "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24},
-    "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
-    "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13},
-    "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
+    "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
+    "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24},
+    "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
+    "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
+    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
+    "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
 
 # ==============================================================================
@@ -145,7 +146,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "C MÓDULO 2: Portal de Agendamento (Cliente FS)"])
+tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "🚛 MÓDULO 2: Portal de Agendamento (Cliente FS)"])
 
 # ==============================================================================
 # ABA 1: MÓDULO GESTÃO DE DISPONIBILIDADE (GD)
@@ -335,7 +336,7 @@ with tab_modulo1:
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --------------------------------------------------------------------------
-    # NOVA SEÇÃO SOLICITADA: AGENDADOS (VISUALIZAÇÃO COMPLETA PELA GD)
+    # NOVA SEÇÃO ADICIONADA CONFORME A SETA DA IMAGEM: AGENDADOS
     # --------------------------------------------------------------------------
     st.markdown('<p class="titulo-secao">📋 AGENDADOS</p>', unsafe_allow_html=True)
     with st.container():
@@ -353,7 +354,7 @@ with tab_modulo1:
                     "VEÍCULO": ag["veiculo"],
                     "MOTORISTA": ag["motorista"],
                     "Nº NF": ag["nf"],
-                    "VOLUME M³": f"{ag['volume']:.2f} m³" if isinstance(ag['volume'], (int, float)) else ag['volume'],
+                    "VOLUME M³": f"{float(ag['volume']):.2f} m³",
                     "PRODUTO": ag["produto"],
                     "ANEXO NF": ag["arquivo_nome"]
                 })
@@ -444,11 +445,11 @@ with tab_modulo2:
             if not st.session_state.db_agendamentos:
                 st.info("Nenhum caminhão agendado para esta programação até o momento.")
             else:
-                # Loop para renderizar cada linha com opção de edição em tempo real
                 for idx, ag in enumerate(st.session_state.db_agendamentos):
-                    # Se este índice for o selecionado para edição, monta o formulário inline
+                    # Modo Edição Ativo para a Linha Selecionada
                     if st.session_state.edit_index == idx:
-                        st.markdown(f"**Modo Edição - Registro #{idx+1}**")
+                        st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
+                        
                         c_ed1, c_ed2, c_ed3 = st.columns(3)
                         with c_ed1:
                             ed_placa = st.text_input("PLACA", value=ag["placa"], key=f"ed_placa_{idx}")
@@ -457,21 +458,11 @@ with tab_modulo2:
                             ed_veiculo = st.text_input("VEÍCULO", value=ag["veiculo"], key=f"ed_veic_{idx}")
                             ed_nf = st.text_input("Nº NF", value=ag["nf"], key=f"ed_nf_{idx}")
                         with c_ed3:
-                            ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), key=f"ed_vol_{idx}")
+                            ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), format="%.2f", key=f"ed_vol_{idx}")
                             ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
                         
-                        # Botão Salvar na cor Verde Estrita
-                        st.markdown("""
-                            <style>
-                                div.stButton > button[key^="save_btn_"] {
-                                    background-color: #28a745 !important;
-                                    color: white !important;
-                                    border: none !important;
-                                }
-                            </style>
-                        """, unsafe_allow_html=True)
-                        
-                        if st.button("✔ SALVAR ALTERAÇÕES", key=f"save_btn_{idx}", type="primary"):
+                        # Botão Salvar Verde posicionado abaixo dos campos de edição
+                        if st.button("✔ SALVAR ALTERAÇÕES", key=f"save_btn_{idx}", class_name="botao-salvar-verde", use_container_width=True):
                             st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
                             st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
                             st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
@@ -479,24 +470,27 @@ with tab_modulo2:
                             st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
                             st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
                             
-                            st.session_state.edit_index = -1  # Desativa modo edição
-                            st.toast("Alterações salvas com sucesso!", icon="✨")
+                            st.session_state.edit_index = -1  # Finaliza a edição
+                            st.toast("Alterações salvas!", icon="✨")
                             st.rerun()
                     else:
-                        # Exibição normal com layout de colunas similar ao print fornecido
+                        # Exibição Normal dos Registros de Agendamento
                         c_row1, c_row2 = st.columns([8, 2])
                         with c_row1:
                             st.markdown(f"""
-                            <div style="background-color:#f8f9fa; padding:10px; border-radius:4px; border-left:4px solid #0d6efd; margin-bottom:5px; font-size:12px;">
+                            <div style="background-color:#f8f9fa; padding:10px; border-radius:4px; border-left:4px solid #0d6efd; font-size:12px;">
                                 <strong>BALSA:</strong> {ag['balsa']} | <strong>DATA:</strong> {ag['data']} | <strong>HORÁRIO:</strong> {ag['janela']} <br>
                                 <strong>PLACA:</strong> {ag['placa']} | <strong>VEÍCULO:</strong> {ag['veiculo']} | <strong>MOTORISTA:</strong> {ag['motorista']} <br>
-                                <strong>Nº NF:</strong> {ag['nf']} | <strong>VOLUME:</strong> {ag['volume']:.2f} m³ | <strong>PRODUTO:</strong> {ag['produto']} | <strong>ANEXO:</strong> {ag['arquivo_nome']}
+                                <strong>Nº NF:</strong> {ag['nf']} | <strong>VOLUME:</strong> {float(ag['volume']):.2f} m³ | <strong>PRODUTO:</strong> {ag['produto']} | <strong>ANEXO:</strong> {ag['arquivo_nome']}
                             </div>
                             """, unsafe_allow_html=True)
                         with c_row2:
+                            # Alinhamento vertical do botão de edição ao lado do bloco informativo
+                            st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
                             if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
                                 st.session_state.edit_index = idx
                                 st.rerun()
-                    st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+                                
+                    st.markdown("<hr style='margin:10px 0; border-color:#e9ecef;'>", unsafe_allow_html=True)
                     
             st.markdown('</div>', unsafe_allow_html=True)
