@@ -75,14 +75,15 @@ st.markdown("""
             font-weight: bold;
         }
         
-        /* Customização estrita para o botão Verde de Salvar */
-        div.stButton > button.botao-salvar-verde {
+        /* Injeção de estilo para o botão Verde de Salvar (via seletor de atributo key) */
+        div[data-testid="stButton"] button[key^="save_btn_"] {
             background-color: #28a745 !important;
             color: white !important;
             border: 1px solid #1e7e34 !important;
             font-weight: bold !important;
+            width: 100%;
         }
-        div.stButton > button.botao-salvar-verde:hover {
+        div[data-testid="stButton"] button[key^="save_btn_"]:hover {
             background-color: #218838 !important;
             color: white !important;
         }
@@ -336,7 +337,7 @@ with tab_modulo1:
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --------------------------------------------------------------------------
-    # NOVA SEÇÃO ADICIONADA CONFORME A SETA DA IMAGEM: AGENDADOS
+    # VISUALIZAÇÃO SOLICITADA: AGENDADOS (VISÃO TOTAL AMPLA NA GD)
     # --------------------------------------------------------------------------
     st.markdown('<p class="titulo-secao">📋 AGENDADOS</p>', unsafe_allow_html=True)
     with st.container():
@@ -413,7 +414,7 @@ with tab_modulo2:
                 
                 if btn_confirmar_agendamento:
                     if not (placa and veiculo and motorista and num_nf and volume > 0 and produto):
-                        st.error("Por favor, preencha todos os campos obrigatórios e garanta que o volume seja maior que zero.")
+                        st.error("Por favor, preencha todos os campos obrigatórios.")
                     elif janela_objeto["disponiveis"] <= 0:
                         st.error("Não foi possível agendar: Esta janela já se encontra esgotada!")
                     else:
@@ -446,7 +447,7 @@ with tab_modulo2:
                 st.info("Nenhum caminhão agendado para esta programação até o momento.")
             else:
                 for idx, ag in enumerate(st.session_state.db_agendamentos):
-                    # Modo Edição Ativo para a Linha Selecionada
+                    # Se esta linha estiver ativa para edição, desenha os inputs inline
                     if st.session_state.edit_index == idx:
                         st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
                         
@@ -461,8 +462,8 @@ with tab_modulo2:
                             ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), format="%.2f", key=f"ed_vol_{idx}")
                             ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
                         
-                        # Botão Salvar Verde posicionado abaixo dos campos de edição
-                        if st.button("✔ SALVAR ALTERAÇÕES", key=f"save_btn_{idx}", class_name="botao-salvar-verde", use_container_width=True):
+                        # Botão Salvar nativo customizado com a cor verde via CSS
+                        if st.button("✔ SALVAR ALTERAÇÕES", key=f"save_btn_{idx}", use_container_width=True):
                             st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
                             st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
                             st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
@@ -470,11 +471,11 @@ with tab_modulo2:
                             st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
                             st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
                             
-                            st.session_state.edit_index = -1  # Finaliza a edição
-                            st.toast("Alterações salvas!", icon="✨")
+                            st.session_state.edit_index = -1  # Desativa o modo edição
+                            st.toast("Alterações salvas com sucesso!", icon="✨")
                             st.rerun()
                     else:
-                        # Exibição Normal dos Registros de Agendamento
+                        # Exibição normal com o botão Editar perfeitamente ao lado
                         c_row1, c_row2 = st.columns([8, 2])
                         with c_row1:
                             st.markdown(f"""
@@ -485,7 +486,6 @@ with tab_modulo2:
                             </div>
                             """, unsafe_allow_html=True)
                         with c_row2:
-                            # Alinhamento vertical do botão de edição ao lado do bloco informativo
                             st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
                             if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
                                 st.session_state.edit_index = idx
