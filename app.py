@@ -9,12 +9,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS para fixar a identidade visual e o cabeçalho centralizado
+# Estilização CSS customizada
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 1rem; }
         
-        /* Cabeçalho Superior Escuro */
+        /* Cabeçalho Superior Escuro e Centralizado */
         .header-top {
             background-color: #0b132b;
             color: white;
@@ -68,6 +68,12 @@ st.markdown("""
             color: #0d6efd;
             font-size: 13px;
         }
+
+        /* Centralização do número inserido dentro do input do Streamlit */
+        div[data-testid="stNumberInput"] input {
+            text-align: center !important;
+            font-weight: bold;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -95,17 +101,12 @@ BALSAS_OPERACIONAIS = {
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13},
-    "SD XX": {"capacidade": "2998.8 m³", "cyan_meta": 49},
+    "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
-
-# Fix para compatibilidade de chaves internas
-for k in BALSAS_OPERACIONAIS:
-    if "cyan_meta" in BALSAS_OPERACIONAIS[k]:
-        BALSAS_OPERACIONAIS[k]["cts_meta"] = BALSAS_OPERACIONAIS[k].pop("cyan_meta")
 
 # ==============================================================================
 # CABEÇALHO CENTRALIZADO - ZION TECNOLOGIA - LOGÍSTICA
@@ -117,7 +118,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Distribuição de tela em duas colunas principais
 col_esq, col_dir = st.columns([4, 8], gap="medium")
 
 # ==============================================================================
@@ -146,7 +146,7 @@ with col_esq:
             
         c3, c4 = st.columns(2)
         with c3:
-            # Substituição do date_input por text_input para travar o formato DD/MM/AAAA na interface
+            # Entrada de data via texto travada em formato PT-BR
             data_atual_ptbr = datetime.today().strftime("%d/%m/%Y")
             data_str = st.text_input("DATA DA OPERAÇÃO (DD/MM/AAAA)", value=data_atual_ptbr)
         with c4:
@@ -215,6 +215,7 @@ with col_dir:
                         </div>
                     """, unsafe_allow_html=True)
                     
+                    # O número digitado aqui agora fica 100% centralizado via regra CSS injetada
                     cota_input = st.number_input(
                         f"Janela_{jan['id']}_input",
                         min_value=0,
@@ -240,9 +241,8 @@ with col_dir:
                 
         st.markdown('</div>', unsafe_allow_html=True)
 
-# Validação e Processo de Salvamento
+# Lógica de Salvamento e Validação
 if balsa_sel != "Selecione a Balsa Ofertada..." and btn_publicar:
-    # Validação do formato de data inserido pelo utilizador
     try:
         data_validada = datetime.strptime(data_str, "%d/%m/%Y").strftime("%d/%m/%Y")
         data_erro = False
@@ -250,7 +250,7 @@ if balsa_sel != "Selecione a Balsa Ofertada..." and btn_publicar:
         data_erro = True
         
     if data_erro:
-        st.toast("Erro: Introduza a data no formato correto DD/MM/AAAA (Ex: 12/06/2026)", icon="🚨")
+        st.toast("Erro: Introduza a data no formato correto DD/MM/AAAA", icon="🚨")
     elif total_alocado != cts_num:
         st.toast("Erro: A distribuição não coincide com a meta física da balsa.", icon="🚨")
     else:
