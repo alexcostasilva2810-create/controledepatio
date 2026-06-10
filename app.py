@@ -2,11 +2,7 @@ import os
 from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
-application = app
 
-# ==============================================================================
-# BANCO DE DADOS EM MEMÓRIA
-# ==============================================================================
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17},
     "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
@@ -33,98 +29,266 @@ BALSAS_OPERACIONAIS = {
 }
 
 DISPONIBILIDADES_DB = []
-AGENDAMENTOS_DB = []
 
 HTML_INTERFACE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Zion - Sistema de Agendamento Portuário</title>
+    <title>Zion Tecnologia - Gestão de Porto</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root { --primary: #0f172a; --accent: #deff9a; }
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, sans-serif; padding: 25px; }
-        .navbar-top { background-color: var(--primary); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; border-bottom: 4px solid var(--accent); }
-        .card-custom { border: none; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); background: white; overflow: hidden; }
-        .card-header-custom { background-color: #1e293b; color: white; font-weight: bold; padding: 18px; border: none; }
-        .box-janela { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; transition: all 0.3s; position: relative; }
-        .box-janela:hover { border-color: #2c74b3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        .input-cota { font-weight: 800; text-align: center; font-size: 18px; color: #1e293b; border: 2px solid #cbd5e1; }
-        .status-badge { font-size: 15px; font-weight: 700; padding: 15px; border-radius: 8px; display: block; text-align: center; margin-bottom: 20px; }
-        .label-custom { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .badge-meta { background: var(--primary); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-size: 12px; }
-        .nav-pills .nav-link.active { background-color: #1e293b; color: #deff9a; font-weight: bold; }
-        .btn-janela-fs { background: #f8fafc; border: 2px dashed #cbd5e1; width: 100%; text-align: left; padding: 15px; border-radius: 10px; transition: all 0.2s; }
-        .btn-janela-fs:hover:not([disabled]) { border-color: #10b981; background: #f0fdf4; transform: scale(1.02); }
+        body { background-color: #f4f6f9; padding: 25px; font-family: sans-serif; }
+        .box-janela { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; text-align: center; }
+        .input-cota { font-weight: bold; text-align: center; font-size: 18px; }
+        .status-badge { padding: 12px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-    <div class="navbar-top d-flex justify-content-between align-items-center shadow-lg">
-        <div>
-            <h4 class="m-0 fw-bold"><i class="fa-solid fa-anchor me-2"></i>SISTEMA DE AGENDAMENTO LOGÍSTICO</h4>
-            <small style="color: var(--accent);">Zion Tecnologia - Controle Integrado de Pátio e Ofertas</small>
+    <div class="container-fluid">
+        <div class="bg-dark text-white p-3 rounded mb-4">
+            <h3>⚓ SISTEMA DE PORTARIA & AGENDAMENTO LOGÍSTICO</h3>
+            <p class="m-0 text-info">Módulo 1: Gestão de Disponibilidade (GD)</p>
         </div>
-        <ul class="nav nav-pills" id="moduloTabs" role="tablist">
-            <li class="nav-item">
-                <button class="nav-link active me-2 text-white" id="tab-gd" data-bs-toggle="tab" data-bs-target="#modulo-gd" type="button"><i class="fa-solid fa-sliders me-1"></i> MÓDULO 1: GESTÃO (GD)</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link text-white bg-dark" id="tab-fs" data-bs-toggle="tab" data-bs-target="#modulo-fs" type="button" onclick="carregarDisponibilidadesFS()"><i class="fa-solid fa-truck-ramp-box me-1"></i> MÓDULO 2: CLIENTE (FS)</button>
-            </li>
-        </ul>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary text-white fw-bold">Configuração da Oferta</div>
+                    <div class="card-body">
+                        <form id="formOferta" onsubmit="salvarOperacao(event)">
+                            <input type="hidden" id="edit_index" value="-1">
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Balsa / Embarcação</label>
+                                <select class="form-select fw-bold" id="balsa_id" onchange="carregarMetricasBalsa()" required>
+                                    <option value="">Selecione...</option>
+                                    {% for balsa in lista_balsas %}
+                                    <option value="{{ balsa }}">{{ balsa }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small">Capacidade</label>
+                                    <input type="text" class="form-control bg-light" id="cap_view" readonly>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Meta (CTS)</label>
+                                    <input type="text" class="form-control bg-light" id="cts_view" readonly>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small">Data</label>
+                                    <input type="date" class="form-control" id="data_op" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Hora Início</label>
+                                    <input type="time" class="form-control" id="hora_inicio" value="06:00" onchange="gerarGradeJanelas()" required>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small">Quantidade de Janelas</label>
+                                <select class="form-select" id="num_janelas" onchange="gerarGradeJanelas()" required>
+                                    <option value="12">12 Janelas Operacionais</option>
+                                    <option value="6">6 Janelas Operacionais</option>
+                                    <option value="24">24 Janelas Operacionais</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-success w-100 fw-bold" id="btn_submit">GRAVAR DISPONIBILIDADE</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between">
+                        <span>Distribuição de Vagas por Janela</span>
+                        <span id="meta_badge" class="badge bg-info text-dark">Aguardando balsa...</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="status_alocacao" class="status-badge alert-secondary">Configure os dados ao lado.</div>
+                        <div class="row g-2" id="grade_container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4 shadow-sm">
+            <div class="card-header bg-secondary text-white fw-bold">Painel de Ofertas Vigentes no Sistema</div>
+            <div class="p-3">
+                <div id="lista_ofertas_consolidada"></div>
+            </div>
+        </div>
     </div>
 
-    <div class="tab-content" id="moduloTabsContent">
+<script>
+    const dataBalsas = {{ dicionario_balsas | tojson }};
+    let metaNecessaria = 0;
+    let dadosTemporariosEdicao = null;
+
+    function carregarMetricasBalsa() {
+        const balsa = document.getElementById('balsa_id').value;
+        if(balsa && dataBalsas[balsa]) {
+            metaNecessaria = dataBalsas[balsa].cts_meta;
+            document.getElementById('cap_view').value = dataBalsas[balsa].capacidade;
+            document.getElementById('cts_view').value = metaNecessaria + " CTS";
+            document.getElementById('meta_badge').innerHTML = `META: ${metaNecessaria} CTS`;
+            gerarGradeJanelas();
+        }
+    }
+
+    function gerarGradeJanelas() {
+        const container = document.getElementById('grade_container');
+        const totalJanelas = parseInt(document.getElementById('num_janelas').value);
+        const horaBase = document.getElementById('hora_inicio').value;
         
-        <div class="tab-pane fade show active" id="modulo-gd" role="tabpanel">
-            <div class="row g-4">
-                <div class="col-lg-4">
-                    <div class="card card-custom shadow">
-                        <div class="card-header card-header-custom"><i class="fa-solid fa-sliders me-2"></i>Configuração da Oferta</div>
-                        <div class="card-body p-4">
-                            <form id="formOferta" onsubmit="salvarOperacao(event)">
-                                <input type="hidden" id="edit_index" value="-1">
-                                
-                                <div class="mb-4">
-                                    <label class="label-custom">Balsa / Embarcação Disponível</label>
-                                    <select class="form-select form-select-lg fw-bold" id="balsa_id" onchange="carregarMetricasBalsa()" required>
-                                        <option value="">Selecione...</option>
-                                        {% for balsa in lista_balsas %}
-                                        <option value="{{ balsa }}">{{ balsa }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+        if(!metaNecessaria || !container) return;
+        container.innerHTML = "";
 
-                                <div class="row mb-4">
-                                    <div class="col-6">
-                                        <label class="label-custom">Capacidade (m³)</label>
-                                        <input type="text" class="form-control bg-light fw-bold" id="cap_view" readonly>
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="label-custom">Exigência (CTS)</label>
-                                        <input type="text" class="form-control bg-light fw-bold text-primary" id="cts_view" readonly>
-                                    </div>
-                                </div>
+        let [h, m] = horaBase.split(':').map(Number);
+        let baseVagas = Math.floor(metaNecessaria / totalJanelas);
+        let sobra = metaNecessaria % totalJanelas;
 
-                                <div class="row mb-4">
-                                    <div class="col-6">
-                                        <label class="label-custom">Data da Operação</label>
-                                        <input type="date" class="form-control fw-bold" id="data_op" required>
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="label-custom">Hora Início</label>
-                                        <input type="time" class="form-control fw-bold" id="hora_inicio" value="06:00" onchange="gerarGradeJanelas()" required>
-                                    </div>
-                                </div>
+        for (let i = 0; i < totalJanelas; i++) {
+            let hIni = String(h).padStart(2, '0');
+            let mIni = String(m).padStart(2, '0');
+            h = (h + 1) % 24;
+            let hFim = String(h).padStart(2, '0');
+            let mFim = String(m).padStart(2, '0');
 
-                                <div class="mb-4">
-                                    <label class="label-custom text-danger">Quantidade de Janelas a Disponibilizar</label>
-                                    <select class="form-select fw-bold border-danger" id="num_janelas" onchange="gerarGradeJanelas()" required>
-                                    </select>
-                                </div>
+            let valorSugerido = baseVagas + (i === 0 ? sobra : 0);
 
-                                <div class="d-grid pt-2">
-                                    <button type="submit" class="btn btn-success btn-lg fw
+            container.innerHTML += `
+                <div class="col-md-3">
+                    <div class="box-janela">
+                        <span class="text-muted small">Janela #${i+1}</span>
+                        <div class="fw-bold text-primary small" id="time_j_${i}">${hIni}:${mIni} às ${hFim}:${mFim}</div>
+                        <input type="number" class="form-control input-cota mt-1" id="vaga_j_${i}" value="${valorSugerido}" min="0" oninput="validarSaldo()">
+                    </div>
+                </div>`;
+        }
+        validarSaldo();
+    }
+
+    function validarSaldo() {
+        let alocado = 0;
+        document.querySelectorAll('.input-cota').forEach(i => alocado += parseInt(i.value) || 0);
+        const box = document.getElementById('status_alocacao');
+        
+        if (alocado === metaNecessaria) {
+            box.className = "status-badge bg-success text-white";
+            box.innerHTML = `✔ GRADE ALINHADA: ${alocado} de ${metaNecessaria} CTS distribuídos.`;
+        } else {
+            box.className = "status-badge bg-warning text-dark";
+            box.innerHTML = `Diferença detectada: ${alocado} de ${metaNecessaria} CTS. Ajuste os blocos.`;
+        }
+    }
+
+    function salvarOperacao(event) {
+        event.preventDefault();
+        let total = 0;
+        let janelas = [];
+        
+        document.querySelectorAll('.input-cota').forEach((i, idx) => {
+            let val = parseInt(i.value) || 0;
+            total += val;
+            janelas.push({
+                janela_num: idx + 1,
+                horario: document.getElementById(`time_j_${idx}`).innerText,
+                vagas: val
+            });
+        });
+
+        if(total !== metaNecessaria) {
+            alert("A soma das janelas deve ser igual à meta!");
+            return;
+        }
+
+        const dadosForm = {
+            balsa: document.getElementById('balsa_id').value,
+            data: document.getElementById('data_op').value,
+            total_vagas: total,
+            janelas_detalhe: janelas
+        };
+
+        fetch('/api/salvar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(dadosForm)
+        })
+        .then(res => res.json())
+        .then(data => {
+            atualizarTabelaConsolidada(data);
+            document.getElementById('formOferta').reset();
+            document.getElementById('grade_container').innerHTML = "";
+        });
+    }
+
+    // AQUI ESTÁ A CORREÇÃO SOLICITADA NO VÍDEO:
+    // O container.innerHTML = "" limpa a tela antiga antes de desenhar a nova lista atualizada!
+    function atualizarTabelaConsolidada(lista) {
+        const container = document.getElementById('lista_ofertas_consolidada');
+        if(!container) return;
+        
+        container.innerHTML = ""; // Limpa os dados antigos evitando a duplicação na tela!
+        
+        if(lista.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted">Nenhuma balsa ativa.</div>';
+            return;
+        }
+
+        lista.forEach((item, idx) => {
+            let linhas = "";
+            item.janelas_detalhe.forEach(j => {
+                linhas += `<tr><td>Janela #${j.janela_num}</td><td>${j.horario}</td><td><b>${j.vagas}</b></td></tr>`;
+            });
+
+            container.innerHTML += `
+                <div class="card mb-3 border-dark">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <span><b>⚓ ${item.balsa}</b> - Data: ${item.data}</span>
+                        <button class="btn btn-danger btn-sm" onclick="removerRegra(${idx})">Remover Balsa</button>
+                    </div>
+                    <table class="table table-sm m-0 table-bordered">
+                        <thead><tr><th>Identificador</th><th>Horário</th><th>Vagas</th></tr></thead>
+                        <tbody>${linhas}</tbody>
+                    </table>
+                </div>`;
+        });
+    }
+
+    function removerRegra(index) {
+        fetch(`/api/deletar/${index}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => atualizarTabelaConsolidada(data));
+    }
+</script>
+</body>
+</html>
+"""
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_INTERFACE, lista_balsas=sorted(BALSAS_OPERACIONAIS.keys()), dicionario_balsas=BALSAS_OPERACIONAIS)
+
+@app.route('/api/salvar', methods=['POST'])
+def api_salvar():
+    DISPONIBILIDADES_DB.append(request.json)
+    return jsonify(DISPONIBILIDADES_DB)
+
+@app.route('/api/deletar/<int:index>', methods=['DELETE'])
+def api_deletar(index):
+    if 0 <= index < len(DISPONIBILIDADES_DB):
+        DISPONIBILIDADES_DB.pop(index)
+    return jsonify(DISPONIBILIDADES_DB)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
