@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 # Configuração da página para ocupar a tela cheia
 st.set_page_config(
-    page_title="Zion Tecnologia - Controle de Pátio",
+    page_title="Zion Tecnologia - Controle Logistico Inteligente",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
