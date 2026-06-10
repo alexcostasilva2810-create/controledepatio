@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import io
 
 # Configuração da Página
 st.set_page_config(
@@ -96,23 +97,32 @@ st.markdown("""
     .stButton>button {
         border-radius: 4px;
     }
+    
+    /* Botão de Confirmação Vermelho */
+    div[data-testid="stForm"] .stButton>button {
+        background-color: #FF4D4D !important;
+        color: white !important;
+        border: none !important;
+        width: 100%;
+        font-weight: bold;
+        padding: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------
-# FUNÇÕES AUXILIARES (CORREÇÃO DE ERRO DO ADOBE ACROBAT)
+# FUNÇÃO PARA GERAR UM PDF MÍNIMO VÁLIDO (EVITA ERRO NO ADOBE ACROBAT)
 # ---------------------------------------------------------------------------------
-def gerar_pdf_simulado():
-    """Gera a estrutura binária mínima e perfeitamente válida de um arquivo PDF
-    de uma página para evitar erros de corrupção ou arquivo danificado no Adobe Reader."""
-    return (
-        b"%PDF-1.4\n"
-        b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
-        b"2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n"
-        b"3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\n"
-        b"xref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\n"
-        b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF"
-    )
+def gerar_pdf_valido_vazio():
+    """Retorna os bytes de um arquivo PDF estruturalmente válido com uma página em branco."""
+    pdf_buffer = io.BytesIO()
+    pdf_buffer.write(b"%PDF-1.4\n")
+    pdf_buffer.write(b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n")
+    pdf_buffer.write(b"2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n")
+    pdf_buffer.write(b"3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\n")
+    pdf_buffer.write(b"xref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\n")
+    pdf_buffer.write(b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF")
+    return pdf_buffer.getvalue()
 
 # ---------------------------------------------------------------------------------
 # BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
@@ -134,11 +144,11 @@ if "ofertas" not in st.session_state:
     ]
 
 if "db_agendamentos" not in st.session_state:
-    pdf_base = gerar_pdf_simulado()
+    pdf_padrao = gerar_pdf_valido_vazio()
     st.session_state.db_agendamentos = [
         {
             "balsa": "SD II",
-            "data": "12/06/2026",
+            "data": "10/06/2026",
             "janela": "06:00 às 07:00",
             "placa": "JVV-7606",
             "veiculo": "BITREN",
@@ -147,11 +157,11 @@ if "db_agendamentos" not in st.session_state:
             "volume": 51000.00,
             "produto": "ANIDRO",
             "arquivo_nome": "NF 1736.pdf",
-            "conteudo_bytes": pdf_base
+            "conteudo_bytes": pdf_padrao
         },
         {
             "balsa": "SD II",
-            "data": "12/06/2026",
+            "data": "10/06/2026",
             "janela": "06:00 às 07:00",
             "placa": "HUG-9869",
             "veiculo": "BITREN",
@@ -160,7 +170,7 @@ if "db_agendamentos" not in st.session_state:
             "volume": 51000.00,
             "produto": "ANIDRO",
             "arquivo_nome": "NF 1812.pdf",
-            "conteudo_bytes": pdf_base
+            "conteudo_bytes": pdf_padrao
         }
     ]
 
@@ -189,7 +199,7 @@ with aba1:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
         
         balsa_gd = st.selectbox("Selecione a Embarcação", ["SD II"], key="gd_balsa")
-        data_gd = st.date_input("Data de Vigência", datetime(2026, 6, 12), key="gd_data")
+        data_gd = st.date_input("Data de Vigência", datetime(2026, 6, 10), key="gd_data")
         exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=25)
         hora_inicio = st.selectbox("Hora Início", ["06:00", "07:00", "08:00"])
         
@@ -202,7 +212,7 @@ with aba1:
         cols_janelas = st.columns(4)
         total_distribuido = 0
         
-        for idx, of in enumerate(st.session_state.ofertas[:12]):
+        for idx, of in enumerate(st.session_state.ofertas[:10]):
             col_id = idx % 4
             with cols_janelas[col_id]:
                 st.markdown(f"""
@@ -227,11 +237,13 @@ with aba1:
             st.success(f"✅ ALOCAÇÃO CONCLUÍDA: {total_distribuido} CTS distribuídos.")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Visão GD) <span style="margin-left:auto; background:#007BFF; padding:2px 8px; font-size:11px; border-radius:3px;">⚓ SD II | 🗓️ 12/06/2026 | 🎫 12 Janelas Ativas</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Visão GD) <span style="margin-left:auto; background:#007BFF; padding:2px 8px; font-size:11px; border-radius:3px;">⚓ SD II | 🗓️ 10/06/2026 | 🎫 12 Janelas Ativas</span></div>', unsafe_allow_html=True)
     
+    # Tratamento da tabela para evitar erros de renderização com st.dataframe
     df_ofertas_view = pd.DataFrame(st.session_state.ofertas)
     df_ofertas_view.columns = ['IDENTIFICADOR', 'HORÁRIO DE ATENDIMENTO', 'VAGAS OFERTADAS', 'COTAS OCUPADAS']
     df_ofertas_view['VAGAS DISPONÍVEIS'] = df_ofertas_view['VAGAS OFERTADAS'] - df_ofertas_view['COTAS OCUPADAS']
+    df_ofertas_view['IDENTIFICADOR'] = df_ofertas_view['IDENTIFICADOR'].apply(lambda x: f"Janela #{x}")
     
     col_table_gd, col_btn_excluir = st.columns([5, 1])
     with col_table_gd:
@@ -243,28 +255,45 @@ with aba1:
     st.markdown('<div class="section-header-container">🗂️ VEÍCULOS AGENDADOS (Visão Geral de Portaria)</div>', unsafe_allow_html=True)
     
     if st.session_state.db_agendamentos:
-        for idx, ag in enumerate(st.session_state.db_agendamentos):
-            c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2.5, 2, 1.5, 1.5])
-            with c1:
-                st.markdown(f"**BALSA:** {ag['balsa']}<br>**DATA:** {ag['data']}", unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"**HORÁRIO:** {ag['janela']}<br>**PLACA:** `{ag['placa']}`", unsafe_allow_html=True)
-            with c3:
-                st.markdown(f"**VEÍCULO:** {ag['veiculo']}<br>**MOTORISTA:** {ag['motorista']}", unsafe_allow_html=True)
-            with c4:
-                st.markdown(f"**Nº NF:** {ag['nf']}<br>**VOLUME:** {ag['volume']:.2f} m³", unsafe_allow_html=True)
-            with c5:
-                st.markdown(f"**PRODUTO:** {ag['produto']}<br>**ANEXO:** {ag['arquivo_nome']}", unsafe_allow_html=True)
-            with c6:
+        # CONVERSÃO DE SEGURANÇA PARA EVITAR O TYP_ERROR NO DATAFRAME DA PORTARIA
+        registros_limpos = []
+        for ag in st.session_state.db_agendamentos:
+            # Garante que o volume seja tratado como float numérico puro
+            try:
+                v_num = float(str(ag['volume']).replace('.', '').replace(',', '.'))
+            except:
+                v_num = 0.0
+                
+            registros_limpos.append({
+                "balsa": ag["balsa"],
+                "data": ag["data"],
+                "janela": ag["janela"],
+                "placa": ag["placa"],
+                "veiculo": ag["veiculo"],
+                "motorista": ag["motorista"],
+                "nf": ag["nf"],
+                "volume": f"{v_num:.2f} m³",
+                "produto": ag["produto"],
+                "arquivo_nome": ag["arquivo_nome"]
+            })
+            
+        df_portaria = pd.DataFrame(registros_limpos)
+        df_portaria.columns = ['BALSA', 'DATA', 'HORÁRIO', 'PLACA', 'VEÍCULO', 'MOTORISTA', 'Nº NF', 'VOLUME', 'PRODUTO', 'ANEXO NF']
+        
+        col_grid_portaria, col_botoes_pdf = st.columns([5.2, 0.8])
+        with col_grid_portaria:
+            st.dataframe(df_portaria, use_container_width=True, hide_index=True)
+            
+        with col_botoes_pdf:
+            for idx, ag in enumerate(st.session_state.db_agendamentos):
                 st.download_button(
                     label="📄 PDF",
-                    data=ag.get("conteudo_bytes", gerar_pdf_simulado()),
+                    data=ag.get("conteudo_bytes", gerar_pdf_valido_vazio()),
                     file_name=ag["arquivo_nome"],
                     mime="application/pdf",
                     key=f"m1_down_portaria_{idx}",
                     use_container_width=True
                 )
-            st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #E2E8F0;'>", unsafe_allow_html=True)
     else:
         st.info("Nenhum veículo agendado no momento.")
 
@@ -280,7 +309,7 @@ with aba2:
         with st.form("form_agendamento", clear_on_submit=False):
             embarcacao_sel = st.selectbox(
                 "1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO",
-                ["SD II - Vigência: 12/06/2026"]
+                ["SD II - Vigência: 10/06/2026"]
             )
             
             opcoes_janelas = [f"Janela #{of['id']} [{of['horario']}] ({of['vagas_o'] - of['cotas_o']} vagas restantes)" for of in st.session_state.ofertas]
@@ -300,7 +329,8 @@ with aba2:
                 
             c_vol, c_prod = st.columns(2)
             with c_vol:
-                volume = st.number_input("VOLUME M³", value=51000.00, step=100.0)
+                # Armazenado nativamente como float numérico para nunca mais causar o ValueError
+                volume = st.number_input("VOLUME M³", value=51000.00, step=1.0)
             with c_prod:
                 produto = st.text_input("PRODUTO", value="ANIDRO").upper()
                 
@@ -309,14 +339,19 @@ with aba2:
             btn_confirmar = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
             if btn_confirmar:
-                # Intercepta e guarda os bytes originais para o Adobe Acrobat ler perfeitamente
-                dados_arquivo_bytes = arquivo_nf.read() if arquivo_nf is not None else gerar_pdf_simulado()
-                nome_do_arquivo = arquivo_nf.name if arquivo_nf is not None else "NF_Automatica.pdf"
+                # Intercepta e valida o arquivo para que não chegue corrompido ao Adobe Acrobat
+                if arquivo_nf is not None:
+                    dados_arquivo_bytes = arquivo_nf.read()
+                    nome_do_arquivo = arquivo_nf.name
+                else:
+                    dados_arquivo_bytes = gerar_pdf_valido_vazio()
+                    nome_do_arquivo = f"NF_{num_nf}.pdf"
+                    
                 horario_janela_limpo = janela_sel.split("[")[1].split("]")[0] if "[" in janela_sel else "06:00 às 07:00"
                 
                 novo_reg = {
                     "balsa": embarcacao_sel.split(" - ")[0],
-                    "data": embarcacao_sel.split(": ")[1] if ": " in embarcacao_sel else "12/06/2026",
+                    "data": "10/06/2026",
                     "janela": horario_janela_limpo,
                     "placa": placa,
                     "veiculo": veiculo,
@@ -337,23 +372,29 @@ with aba2:
         
         if st.session_state.db_agendamentos:
             for idx, ag in enumerate(st.session_state.db_agendamentos):
+                # Conversão explícita de segurança antes de aplicar a máscara de string
+                try:
+                    vol_exibicao = float(ag['volume'])
+                except:
+                    vol_exibicao = 0.0
+
                 st.markdown(f"""
-                <div style="background-color: #F8F9FA; border-left: 4px solid #007BFF; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                <div style="background-color: #F8F9FA; border-left: 4px solid #007BFF; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
                     <span style="float: right; font-size: 11px; color: #6C757D;">📋 Registro #{idx+1}</span>
                     <p style="margin: 0 0 4px 0; font-size: 13px;"><b>BALSA:</b> {ag['balsa']} | <b>DATA:</b> {ag['data']} | <b>HORÁRIO:</b> {ag['janela']}</p>
                     <p style="margin: 0 0 4px 0; font-size: 13px;"><b>PLACA:</b> {ag['placa']} | <b>VEÍCULO:</b> {ag['veiculo']} | <b>MOTORISTA:</b> {ag['motorista']}</p>
-                    <p style="margin: 0; font-size: 13px;"><b>Nº NF:</b> {ag['nf']} | <b>VOLUME:</b> {ag['volume']:.2f} m³ | <b>PRODUTO:</b> {ag['produto']}</p>
+                    <p style="margin: 0; font-size: 13px;"><b>Nº NF:</b> {ag['nf']} | <b>VOLUME:</b> {vol_exibicao:.2f} m³ | <b>PRODUTO:</b> {ag['produto']} | <b>ANEXO:</b> {ag['arquivo_nome']}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
                 c_edit, c_down = st.columns([1, 1])
                 with c_edit:
                     if st.button(f"📝 Editar", key=f"m2_btn_edit_{idx}", use_container_width=True):
-                        st.info("Formulário carregado para edição.")
+                        st.info("Campos mapeados para alteração.")
                 with c_down:
                     st.download_button(
                         label="📄 Baixar PDF da NF",
-                        data=ag.get("conteudo_bytes", gerar_pdf_simulado()),
+                        data=ag.get("conteudo_bytes", gerar_pdf_valido_vazio()),
                         file_name=ag["arquivo_nome"],
                         mime="application/pdf",
                         key=f"m2_btn_down_{idx}",
