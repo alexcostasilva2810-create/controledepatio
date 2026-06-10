@@ -2,10 +2,10 @@ import os
 from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
-application = app  # Fornece compatibilidade adicional para servidores WSGI
+application = app
 
 # ==============================================================================
-# BANCO DE DADOS OPERACIONAL (BALSAS, CAPACIDADES E CTS)
+# BANCO DE DADOS EM MEMÓRIA
 # ==============================================================================
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17},
@@ -24,7 +24,7 @@ BALSAS_OPERACIONAIS = {
     "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
-    "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13},
+    "SD XVIII": {"capacidade": "795.6 m³", "%" : "13", "cts_meta": 13},
     "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
@@ -33,13 +33,14 @@ BALSAS_OPERACIONAIS = {
 }
 
 DISPONIBILIDADES_DB = []
+AGENDAMENTOS_DB = []
 
 HTML_INTERFACE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Zion - Criação de Disponibilidade Master</title>
+    <title>Zion - Sistema de Agendamento Portuário</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -54,6 +55,9 @@ HTML_INTERFACE = """
         .status-badge { font-size: 15px; font-weight: 700; padding: 15px; border-radius: 8px; display: block; text-align: center; margin-bottom: 20px; }
         .label-custom { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
         .badge-meta { background: var(--primary); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-size: 12px; }
+        .nav-pills .nav-link.active { background-color: #1e293b; color: #deff9a; font-weight: bold; }
+        .btn-janela-fs { background: #f8fafc; border: 2px dashed #cbd5e1; width: 100%; text-align: left; padding: 15px; border-radius: 10px; transition: all 0.2s; }
+        .btn-janela-fs:hover:not([disabled]) { border-color: #10b981; background: #f0fdf4; transform: scale(1.02); }
     </style>
 </head>
 <body>
@@ -61,106 +65,210 @@ HTML_INTERFACE = """
     <div class="navbar-top d-flex justify-content-between align-items-center shadow-lg">
         <div>
             <h4 class="m-0 fw-bold"><i class="fa-solid fa-anchor me-2"></i>SISTEMA DE AGENDAMENTO LOGÍSTICO</h4>
-            <small style="color: var(--accent);">Painel de Criação de Disponibilidade - Zion Tecnologia</small>
+            <small style="color: var(--accent);">Zion Tecnologia - Controle Integrado de Pátio e Ofertas</small>
         </div>
-        <span class="badge bg-light text-dark px-3 py-2 fw-bold">MÓDULO 1: DISPONIBILIDADE</span>
+        <ul class="nav nav-pills" id="moduloTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active me-2 text-white" id="tab-gd" data-bs-toggle="tab" data-bs-target="#modulo-gd" type="button"><i class="fa-solid fa-sliders me-1"></i> MÓDULO 1: GESTÃO (GD)</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link text-white bg-dark" id="tab-fs" data-bs-toggle="tab" data-bs-target="#modulo-fs" type="button" onclick="carregarDisponibilidadesFS()"><i class="fa-solid fa-truck-ramp-box me-1"></i> MÓDULO 2: CLIENTE (FS)</button>
+            </li>
+        </ul>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-4">
-            <div class="card card-custom shadow">
-                <div class="card-header card-header-custom"><i class="fa-solid fa-sliders me-2"></i>Configuração da Oferta</div>
-                <div class="card-body p-4">
-                    <form id="formOferta" onsubmit="salvarOperacao(event)">
-                        <input type="hidden" id="edit_index" value="-1">
-                        
-                        <div class="mb-4">
-                            <label class="label-custom">Balsa / Embarcação Disponível</label>
-                            <select class="form-select form-select-lg fw-bold" id="balsa_id" onchange="carregarMetricasBalsa()" required>
-                                <option value="">Selecione...</option>
-                                {% for balsa in lista_balsas %}
-                                <option value="{{ balsa }}">{{ balsa }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+    <div class="tab-content" id="moduloTabsContent">
+        
+        <div class="tab-pane fade show active" id="modulo-gd" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="card card-custom shadow">
+                        <div class="card-header card-header-custom"><i class="fa-solid fa-sliders me-2"></i>Configuração da Oferta</div>
+                        <div class="card-body p-4">
+                            <form id="formOferta" onsubmit="salvarOperacao(event)">
+                                <input type="hidden" id="edit_index" value="-1">
+                                
+                                <div class="mb-4">
+                                    <label class="label-custom">Balsa / Embarcação Disponível</label>
+                                    <select class="form-select form-select-lg fw-bold" id="balsa_id" onchange="carregarMetricasBalsa()" required>
+                                        <option value="">Selecione...</option>
+                                        {% for balsa in lista_balsas %}
+                                        <option value="{{ balsa }}">{{ balsa }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
 
-                        <div class="row mb-4">
-                            <div class="col-6">
-                                <label class="label-custom">Capacidade (m³)</label>
-                                <input type="text" class="form-control bg-light fw-bold" id="cap_view" readonly>
-                            </div>
-                            <div class="col-6">
-                                <label class="label-custom">Exigência (CTS)</label>
-                                <input type="text" class="form-control bg-light fw-bold text-primary" id="cts_view" readonly>
-                            </div>
-                        </div>
+                                <div class="row mb-4">
+                                    <div class="col-6">
+                                        <label class="label-custom">Capacidade (m³)</label>
+                                        <input type="text" class="form-control bg-light fw-bold" id="cap_view" readonly>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="label-custom">Exigência (CTS)</label>
+                                        <input type="text" class="form-control bg-light fw-bold text-primary" id="cts_view" readonly>
+                                    </div>
+                                </div>
 
-                        <div class="row mb-4">
-                            <div class="col-6">
-                                <label class="label-custom">Data da Operação</label>
-                                <input type="date" class="form-control fw-bold" id="data_op" required>
-                            </div>
-                            <div class="col-6">
-                                <label class="label-custom">Hora Início</label>
-                                <input type="time" class="form-control fw-bold" id="hora_inicio" value="06:00" onchange="gerarGradeJanelas()" required>
-                            </div>
-                        </div>
+                                <div class="row mb-4">
+                                    <div class="col-6">
+                                        <label class="label-custom">Data da Operação</label>
+                                        <input type="date" class="form-control fw-bold" id="data_op" required>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="label-custom">Hora Início</label>
+                                        <input type="time" class="form-control fw-bold" id="hora_inicio" value="06:00" onchange="gerarGradeJanelas()" required>
+                                    </div>
+                                </div>
 
-                        <div class="mb-4">
-                            <label class="label-custom text-danger">Quantidade de Janelas a Disponibilizar</label>
-                            <select class="form-select fw-bold border-danger" id="num_janelas" onchange="gerarGradeJanelas()" required>
-                            </select>
-                        </div>
+                                <div class="mb-4">
+                                    <label class="label-custom text-danger">Quantidade de Janelas a Disponibilizar</label>
+                                    <select class="form-select fw-bold border-danger" id="num_janelas" onchange="gerarGradeJanelas()" required>
+                                    </select>
+                                </div>
 
-                        <div class="d-grid pt-2">
-                            <button type="submit" class="btn btn-success btn-lg fw-bold" id="btn_submit">
-                                <i class="fa-solid fa-floppy-disk me-2"></i>GRAVAR DISPONIBILIDADE
-                            </button>
+                                <div class="d-grid pt-2">
+                                    <button type="submit" class="btn btn-success btn-lg fw-bold" id="btn_submit">
+                                        <i class="fa-solid fa-floppy-disk me-2"></i>GRAVAR DISPONIBILIDADE
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-8">
-            <div class="card card-custom shadow">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-clock me-2"></i>Distribuição de Vagas por Janela</span>
-                    <span id="meta_badge" class="badge-meta">Aguardando balsa...</span>
-                </div>
-                <div class="card-body p-4">
-                    <div id="status_alocacao" class="status-badge alert-secondary">
-                        Selecione os parâmetros ao lado para gerar a grade.
                     </div>
-                    <div class="row g-3" id="grade_container"></div>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="card card-custom shadow">
+                        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                            <span><i class="fa-solid fa-clock me-2"></i>Distribuição de Vagas por Janela</span>
+                            <span id="meta_badge" class="badge-meta">Aguardando balsa...</span>
+                        </div>
+                        <div class="card-body p-4">
+                            <div id="status_alocacao" class="status-badge alert-secondary">
+                                Selecione os parâmetros ao lado para gerar a grade.
+                            </div>
+                            <div class="row g-3" id="grade_container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-custom mt-4 shadow">
+                <div class="card-header card-header-custom text-white bg-secondary"><i class="fa-solid fa-list-check me-2"></i>Painel de Ofertas Vigentes no Sistema (Visão GD)</div>
+                <div class="p-3">
+                    <div id="lista_ofertas_consolidada">
+                        <div class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="card card-custom mt-4 shadow">
-        <div class="card-header card-header-custom text-white bg-secondary"><i class="fa-solid fa-list-check me-2"></i>Painel de Ofertas Vigentes no Sistema</div>
-        <div class="p-3">
-            <div id="lista_ofertas_consolidada">
-                <div class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</div>
+        <div class="tab-pane fade" id="modulo-fs" role="tabpanel">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card card-custom shadow mb-4">
+                        <div class="card-header bg-primary text-white"><i class="fa-solid fa-ship me-2"></i>1. Selecione a Embarcação Vinculada para Agendamento</div>
+                        <div class="card-body p-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="label-custom">Ofertas Master Ativas</label>
+                                    <select class="form-select form-select-lg fw-bold border-primary" id="select_oferta_fs" onchange="renderizarPainelJanelasFS()">
+                                        <option value="">Selecione uma balsa operacional ativa...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <div id="resumo_balsa_fs" class="w-100 p-2 border rounded bg-light fw-bold text-secondary text-center" style="display:none;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-7">
+                    <div class="card card-custom shadow">
+                        <div class="card-header bg-dark text-white"><i class="fa-solid fa-clock-retro me-2"></i>2. Janelas de Atendimento Disponíveis</div>
+                        <div class="card-body p-4">
+                            <div class="row g-3" id="grade_janelas_fs_container">
+                                <div class="text-center text-muted">Selecione uma oferta master acima para carregar os horários.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="card card-custom shadow" id="card_formulario_agendamento" style="display: none; border-top: 5px solid #10b981;">
+                        <div class="card-header bg-light text-dark fw-bold d-flex justify-content-between align-items-center">
+                            <span><i class="fa-solid fa-file-pen text-success me-2"></i>Formulário de Agendamento</span>
+                            <span class="badge bg-success" id="badge_janela_selecionada"></span>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="formEfetuarAgendamento" onsubmit="confirmarAgendamentoFS(event)">
+                                <input type="hidden" id="fs_oferta_idx">
+                                <input type="hidden" id="fs_janela_idx">
+                                
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label class="label-custom">Placa do Cavalo</label>
+                                        <input type="text" class="form-control fw-bold text-uppercase" id="fs_cavalo" placeholder="ABC1234" required>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="label-custom">Placa da Carreta</label>
+                                        <input type="text" class="form-control fw-bold text-uppercase" id="fs_placa" placeholder="XYZ5678" required>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="label-custom">Número da Nota Fiscal (NF)</label>
+                                    <input type="number" class="form-control fw-bold" id="fs_nf" placeholder="00012345" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="label-custom">Volume da Carga (m³)</label>
+                                    <input type="number" step="0.01" class="form-control fw-bold" id="fs_volume" placeholder="Ex: 45.50" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="label-custom">Nome Completo do Motorista</label>
+                                    <input type="text" class="form-control fw-bold" id="fs_motorista" placeholder="Nome do Condutor" required>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="label-custom">Documento CNH</label>
+                                    <input type="number" class="form-control fw-bold" id="fs_cnh" placeholder="Número do Registro CNH" required>
+                                </div>
+
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-success btn-lg fw-bold shadow">
+                                        <i class="fa-solid fa-circle-check me-2"></i>CONFIRMAR AGENDAMENTO (FS)
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+
     </div>
 
 <script>
     const dataBalsas = {{ dicionario_balsas | tojson }};
     let metaNecessaria = 0;
     let dadosTemporariosEdicao = null;
+    let bancoLocalOfertas = [];
 
     function initJanelasSelect() {
         const sel = document.getElementById('num_janelas');
-        sel.innerHTML = "";
-        for (let i = 6; i <= 24; i++) {
-            let opt = document.createElement('option');
-            opt.value = i;
-            opt.innerHTML = `${i} Janelas Operacionais`;
-            if(i === 12) opt.selected = true;
-            sel.appendChild(opt);
+        if(sel) {
+            sel.innerHTML = "";
+            for (let i = 6; i <= 24; i++) {
+                let opt = document.createElement('option');
+                opt.value = i;
+                opt.innerHTML = `${i} Janelas Operacionais`;
+                if(i === 12) opt.selected = true;
+                sel.appendChild(opt);
+            }
         }
     }
 
@@ -180,7 +288,7 @@ HTML_INTERFACE = """
         const totalJanelas = parseInt(document.getElementById('num_janelas').value);
         const horaBase = document.getElementById('hora_inicio').value;
         
-        if(!metaNecessaria) return;
+        if(!metaNecessaria || !container) return;
 
         container.innerHTML = "";
         let [h, m] = horaBase.split(':').map(Number);
@@ -223,6 +331,8 @@ HTML_INTERFACE = """
         });
 
         const box = document.getElementById('status_alocacao');
+        if(!box) return;
+        
         if (alocado === metaNecessaria) {
             box.className = "status-badge bg-success text-white";
             box.innerHTML = `<i class="fa-solid fa-check-circle me-2"></i>GRADE PERFEITA: ${alocado} de ${metaNecessaria} CTS distribuídos.`;
@@ -282,6 +392,7 @@ HTML_INTERFACE = """
         .then(res => res.json())
         .then(data => {
             alert("Gravação executada com sucesso!");
+            bancoLocalOfertas = data;
             atualizarTabelaConsolidada(data);
             resetarFormularioCompleto();
         });
@@ -325,6 +436,7 @@ HTML_INTERFACE = """
 
     function atualizarTabelaConsolidada(lista) {
         const container = document.getElementById('lista_ofertas_consolidada');
+        if(!container) return;
         if(!lista || lista.length === 0) {
             container.innerHTML = `<div class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</div>`;
             return;
@@ -339,8 +451,8 @@ HTML_INTERFACE = """
                         <td><span class="badge bg-secondary">Janela #${j.janela_num}</span></td>
                         <td><b class="text-primary">${j.horario}</b></td>
                         <td class="text-center fw-bold text-dark">${j.vagas}</td>
-                        <td class="text-center fw-bold text-danger">${j.ocupadas}</td>
-                        <td class="text-center fw-bold text-success bg-light">${j.disponiveis}</td>
+                        <td class="text-center fw-bold text-danger bg-light">${j.ocupadas}</td>
+                        <td class="text-center fw-bold text-success">${j.disponiveis}</td>
                     </tr>`;
             });
 
@@ -376,16 +488,136 @@ HTML_INTERFACE = """
         });
     }
 
+    // =========================================================================
+    // LÓGICA EXCLUSIVA MÓDULO 2 (FS)
+    // =========================================================================
+    function carregarDisponibilidadesFS() {
+        fetch('/api/listar_disponibilidades')
+        .then(res => res.json())
+        .then(data => {
+            bancoLocalOfertas = data;
+            const select = document.getElementById('select_oferta_fs');
+            select.innerHTML = '<option value="">Selecione uma balsa operacional ativa...</option>';
+            
+            data.forEach((item, index) => {
+                let opt = document.createElement('option');
+                opt.value = index;
+                opt.innerHTML = `⚓ ${item.balsa} — Data: ${formatarDataBR(item.data)} (${item.num_janelas} Janelas)`;
+                select.appendChild(opt);
+            });
+            
+            document.getElementById('grade_janelas_fs_container').innerHTML = '<div class="text-center text-muted">Selecione uma oferta master acima para carregar os horários.</div>';
+            document.getElementById('card_formulario_agendamento').style.display = 'none';
+            document.getElementById('resumo_balsa_fs').style.display = 'none';
+        });
+    }
+
+    function renderizarPainelJanelasFS() {
+        const idx = document.getElementById('select_oferta_fs').value;
+        const container = document.getElementById('grade_janelas_fs_container');
+        const resumo = document.getElementById('resumo_balsa_fs');
+        
+        if(idx === "") {
+            container.innerHTML = '<div class="text-center text-muted">Selecione uma oferta master acima para carregar os horários.</div>';
+            document.getElementById('card_formulario_agendamento').style.display = 'none';
+            resumo.style.display = 'none';
+            return;
+        }
+
+        const oferta = bancoLocalOfertas[idx];
+        resumo.innerHTML = `Capacidade: ${dataBalsas[oferta.balsa].capacidade} | Exigência: ${oferta.total_vagas} CTS`;
+        resumo.style.display = 'block';
+
+        container.innerHTML = "";
+        oferta.janelas_detalhe.forEach((j, jIdx) => {
+            let isDisabled = j.disponiveis <= 0;
+            container.innerHTML += `
+                <div class="col-md-4">
+                    <button class="btn-janela-fs position-relative shadow-sm" type="button" 
+                            ${isDisabled ? 'disabled style="opacity:0.6; background:#e2e8f0;"' : ''} 
+                            onclick="abrirFormularioAgendamento(${idx}, ${jIdx})">
+                        <span class="position-absolute top-0 end-0 translate-middle badge rounded-pill ${isDisabled ? 'bg-danger' : 'bg-success'}" style="margin-top:12px; margin-right:15px;">
+                            ${j.disponiveis} vagas restando
+                        </span>
+                        <div class="fw-bold text-dark mb-1">Janela #${j.janela_num}</div>
+                        <div class="small fw-bold text-primary mb-2"><i class="fa-regular fa-clock me-1"></i> ${j.horario}</div>
+                        <div class="text-muted" style="font-size:11px;">Ocupadas: <b class="text-danger">${j.ocupadas}</b></div>
+                    </button>
+                </div>`;
+        });
+    }
+
+    function abrirFormularioAgendamento(ofertaIdx, janelaIdx) {
+        const oferta = bancoLocalOfertas[ofertaIdx];
+        const janela = oferta.janelas_detalhe[janelaIdx];
+
+        document.getElementById('fs_oferta_idx').value = ofertaIdx;
+        document.getElementById('fs_janela_idx').value = janelaIdx;
+        document.getElementById('badge_janela_selecionada').innerText = `Janela #${janela.janela_num} (${janela.horario})`;
+        
+        document.getElementById('formEfetuarAgendamento').reset();
+        document.getElementById('card_formulario_agendamento').style.display = 'block';
+        
+        document.getElementById('card_formulario_agendamento').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function confirmarAgendamentoFS(event) {
+        event.preventDefault();
+        
+        const oIdx = document.getElementById('fs_oferta_idx').value;
+        const jIdx = document.getElementById('fs_janela_idx').value;
+
+        const dadosAgendamento = {
+            oferta_index: oIdx,
+            janela_index: jIdx,
+            cavalo: document.getElementById('fs_cavalo').value.toUpperCase(),
+            placa: document.getElementById('fs_placa').value.toUpperCase(),
+            nf: document.getElementById('fs_nf').value,
+            volume: document.getElementById('fs_volume').value,
+            motorista: document.getElementById('fs_motorista').value,
+            cnh: document.getElementById('fs_cnh').value
+        };
+
+        fetch('/api/efetuar_agendamento', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(dadosAgendamento)
+        })
+        .then(res => {
+            if(!res.ok) throw new Error("Sem vagas disponíveis!");
+            return res.json();
+        })
+        .then(data => {
+            alert("Agendamento efetuado e salvo no pátio com sucesso!");
+            bancoLocalOfertas = data;
+            
+            // Atualiza os dois lados simultaneamente
+            renderizarPainelJanelasFS();
+            atualizarTabelaConsolidada(data);
+            
+            document.getElementById('card_formulario_agendamento').style.display = 'none';
+        })
+        .catch(err => alert(err.message));
+    }
+
     window.onload = function() {
         initJanelasSelect();
+        // Inicializa buscando do backend se já houver algo cadastrado
+        fetch('/api/listar_disponibilidades')
+        .then(res => res.json())
+        .then(data => {
+            bancoLocalOfertas = data;
+            atualizarTabelaConsolidada(data);
+        });
     };
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 """
 
 # ==============================================================================
-# ENDPOINTS API REST
+# CONTROLLERS E ROTAS DA API
 # ==============================================================================
 @app.route('/')
 def index():
@@ -394,6 +626,10 @@ def index():
         lista_balsas=sorted(BALSAS_OPERACIONAIS.keys()), 
         dicionario_balsas=BALSAS_OPERACIONAIS
     )
+
+@app.route('/api/listar_disponibilidades', methods=['GET'])
+def api_listar():
+    return jsonify(DISPONIBILIDADES_DB)
 
 @app.route('/api/salvar_disponibilidade', methods=['POST'])
 def api_salvar():
@@ -404,6 +640,11 @@ def api_salvar():
     if index == -1:
         DISPONIBILIDADES_DB.append(dados)
     else:
+        # Preserva os agendamentos já computados se for edição
+        for i, jan_antiga in enumerate(DISPONIBILIDADES_DB[index]['janelas_detalhe']):
+            if i < len(dados['janelas_detalhe']):
+                dados['janelas_detalhe'][i]['ocupadas'] = jan_antiga.get('ocupadas', 0)
+                dados['janelas_detalhe'][i]['disponiveis'] = dados['janelas_detalhe'][i]['vagas'] - jan_antiga.get('ocupadas', 0)
         DISPONIBILIDADES_DB[index] = dados
         
     return jsonify(DISPONIBILIDADES_DB)
@@ -413,6 +654,34 @@ def api_obter(index):
     if 0 <= index < len(DISPONIBILIDADES_DB):
         return jsonify(DISPONIBILIDADES_DB[index])
     return jsonify({}), 404
+
+@app.route('/api/efetuar_agendamento', methods=['POST'])
+def api_agendar():
+    req = request.json
+    o_idx = int(req.get('oferta_index'))
+    j_idx = int(req.get('janela_index'))
+    
+    oferta = DISPONIBILIDADES_DB[o_idx]
+    janela = oferta['janelas_detalhe'][j_idx]
+    
+    if janela['disponiveis'] > 0:
+        janela['ocupadas'] += 1
+        janela['disponiveis'] -= 1
+        
+        AGENDAMENTOS_DB.append({
+            "balsa": oferta['balsa'],
+            "data": oferta['data'],
+            "horario": janela['horario'],
+            "cavalo": req.get('cavalo'),
+            "placa": req.get('placa'),
+            "nf": req.get('nf'),
+            "volume": req.get('volume'),
+            "motorista": req.get('motorista'),
+            "cnh": req.get('cnh')
+        })
+        return jsonify(DISPONIBILIDADES_DB)
+    else:
+        return jsonify({"erro": "Janela sem vagas"}), 400
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
