@@ -322,7 +322,7 @@ with tab_modulo1:
             st.toast("Disponibilidade publicada com sucesso!", icon="✨")
             st.rerun()
 
-    # CORREÇÃO AQUI: Painel de Ofertas Vigentes Configurado como Compacto e Centralizado
+    # CORREÇÃO DEFINITIVA: Mudança para visualização compacta e centralização via Pandas Styler
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema (Visão GD)</p>', unsafe_allow_html=True)
 
@@ -359,19 +359,15 @@ with tab_modulo1:
                 
                 df_display = pd.DataFrame(lista_tabela)
                 
-                # Renderiza com visualização compacta e centralização explícita das colunas
+                # Força centralização via CSS do Pandas DataFrame
+                df_style = df_display.style.set_properties(**{'text-align': 'center'})
+                
+                # Renderiza de forma segura e limpa
                 st.dataframe(
-                    df_display, 
+                    df_style, 
                     use_container_width=True, 
                     hide_index=True,
-                    density="compact",
-                    column_config={
-                        "IDENTIFICADOR": st.column_config.TextColumn(alignment="center"),
-                        "HORÁRIO DE ATENDIMENTO": st.column_config.TextColumn(alignment="center"),
-                        "VAGAS OFERTADAS": st.column_config.NumberColumn(alignment="center"),
-                        "COTAS OCUPADAS": st.column_config.NumberColumn(alignment="center"),
-                        "VAGAS DISPONÍVEIS": st.column_config.NumberColumn(alignment="center"),
-                    }
+                    density="compact"
                 )
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -385,7 +381,6 @@ with tab_modulo1:
         if not st.session_state.db_agendamentos:
             st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhum veículo agendado no sistema até o momento.</div>', unsafe_allow_html=True)
         else:
-            # Cabeçalho da tabela simulado em colunas nativas do Streamlit
             st.markdown("""
                 <div class="table-header-custom">
                     <table style="width: 100%; border-collapse: collapse; border: none; background: transparent; text-align: center;">
@@ -504,9 +499,6 @@ with tab_modulo2:
                         st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # ==============================================================================
-    # COMPROVANTES DE AGENDAMENTO EM LINHA COM COLUNAS ALINHADAS, BOTÃO E DOWNLOAD NO MÓDULO 2
-    # ==============================================================================
     with col_fs_dir:
         st.markdown('<p class="titulo-secao">📜 Comprovantes de Agendamento Emitidos</p>', unsafe_allow_html=True)
         with st.container():
@@ -541,7 +533,7 @@ with tab_modulo2:
                     if st.session_state.edit_index == idx:
                         st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px; font-size:12px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
                         
-                        c_ed1, c_ed2, c_ed3, c_ed4 = st.columns([3, 3, 3, 1.5])
+                        c_ed1, c_ed2, c_ed3 = st.columns([4, 4, 4])
                         with c_ed1:
                             ed_placa = st.text_input("PLACA", value=ag["placa"], key=f"ed_placa_{idx}")
                             ed_motorista = st.text_input("MOTORISTA", value=ag["motorista"], key=f"ed_moto_{idx}")
@@ -551,19 +543,19 @@ with tab_modulo2:
                         with c_ed3:
                             ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), format="%.2f", key=f"ed_vol_{idx}")
                             ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
-                        with c_ed4:
-                            st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-                            if st.button("💾 Salvar", key=f"save_btn_{idx}", use_container_width=True, type="primary"):
-                                st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
-                                st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
-                                st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
-                                st.session_state.db_agendamentos[idx]["nf"] = ed_nf
-                                st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
-                                st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
-                                
-                                st.session_state.edit_index = -1
-                                st.toast("Alterações salvas com sucesso!", icon="✨")
-                                st.rerun()
+                        
+                        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+                        if st.button("💾 Salvar Alterações", key=f"save_btn_{idx}", use_container_width=True, type="primary"):
+                            st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
+                            st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
+                            st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
+                            st.session_state.db_agendamentos[idx]["nf"] = ed_nf
+                            st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
+                            st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
+                            
+                            st.session_state.edit_index = -1
+                            st.toast("Alterações salvas com sucesso!", icon="✨")
+                            st.rerun()
                     else:
                         cols_m2 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.3, 1.0, 0.9, 0.8, 0.8, 1.0])
                         
