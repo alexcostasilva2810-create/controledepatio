@@ -12,14 +12,14 @@ BALSAS_OPERACIONAIS = {
     "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24},
+    "SD VII": {"capacidade": "1468.8 m³", "cta_meta": 24},
     "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "24": 24},
+    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24},
     "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
@@ -50,11 +50,10 @@ HTML_INTERFACE = """
         .box-janela { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; transition: all 0.3s; position: relative; }
         .box-janela:hover { border-color: #2c74b3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         .input-cota { font-weight: 800; text-align: center; font-size: 18px; color: #1e293b; border: 2px solid #cbd5e1; }
-        .input-cota:focus { border-color: #2c74b3; box-shadow: none; }
         .status-badge { font-size: 15px; font-weight: 700; padding: 15px; border-radius: 8px; display: block; text-align: center; margin-bottom: 20px; }
         .label-custom { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
         .badge-meta { background: var(--primary); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-size: 12px; }
-        .btn-edit { padding: 4px 10px; font-size: 13px; }
+        .sub-table-container { background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #2c74b3; }
     </style>
 </head>
 <body>
@@ -114,7 +113,9 @@ HTML_INTERFACE = """
                         </div>
 
                         <div class="d-grid pt-2">
-                            <button type="submit" class="btn btn-dark btn-lg fw-bold" id="btn_submit"><i class="fa-solid fa-cloud-arrow-up me-2"></i>PUBLICAR DISPONIBILIDADE</button>
+                            <button type="submit" class="btn btn-success btn-lg fw-bold" id="btn_submit">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>GRAVAR DISPONIBILIDADE
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -139,24 +140,10 @@ HTML_INTERFACE = """
 
     <div class="card card-custom mt-4 shadow">
         <div class="card-header card-header-custom text-white bg-secondary"><i class="fa-solid fa-list-check me-2"></i>Painel de Ofertas Vigentes no Sistema</div>
-        <div class="table-responsive">
-            <table class="table table-striped align-middle m-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Balsa</th>
-                        <th>Data Vigência</th>
-                        <th>Início</th>
-                        <th>Janelas Operacionais</th>
-                        <th>Total Vagas Alocadas</th>
-                        <th class="text-center" style="width: 100px;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tabela_ofertas">
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="p-3">
+            <div id="lista_ofertas_consolidada">
+                <div class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</div>
+            </div>
         </div>
     </div>
 
@@ -204,31 +191,28 @@ HTML_INTERFACE = """
         for (let i = 0; i < totalJanelas; i++) {
             let hIni = String(h).padStart(2, '0');
             let mIni = String(m).padStart(2, '0');
-            
             h = (h + 1) % 24;
-            
             let hFim = String(h).padStart(2, '0');
             let mFim = String(m).padStart(2, '0');
 
             let valorSugerido = baseVagas + (i === 0 ? sobra : 0);
             
-            // Se estamos editando, tenta recuperar o valor manual previamente salvo naquela posição
             if (dadosTemporariosEdicao && dadosTemporariosEdicao[i] !== undefined) {
-                valorSugerido = dadosTemporariosEdicao[i];
+                valorSugerido = dadosTemporariosEdicao[i].vagas;
             }
 
             container.innerHTML += `
                 <div class="col-md-3 col-sm-6">
                     <div class="box-janela">
                         <label class="label-custom">JANELA #${i+1}</label>
-                        <div class="fw-bold mb-2 small" style="color:#2c74b3;">${hIni}:${mIni} às ${hFim}:${mFim}</div>
+                        <div class="fw-bold mb-2 small" style="color:#2c74b3;" id="time_j_${i}">${hIni}:${mIni} às ${hFim}:${mFim}</div>
                         <input type="number" class="form-control input-cota" 
                                id="vaga_j_${i}" value="${valorSugerido}" min="0" 
                                oninput="validarSaldo()">
                     </div>
                 </div>`;
         }
-        dadosTemporariosEdicao = null; // Limpa o cache após renderizar
+        dadosTemporariosEdicao = null;
         validarSaldo();
     }
 
@@ -239,7 +223,6 @@ HTML_INTERFACE = """
         });
 
         const box = document.getElementById('status_alocacao');
-        
         if (alocado === metaNecessaria) {
             box.className = "status-badge bg-success text-white";
             box.innerHTML = `<i class="fa-solid fa-check-circle me-2"></i>GRADE PERFEITA: ${alocado} de ${metaNecessaria} CTS distribuídos.`;
@@ -261,11 +244,19 @@ HTML_INTERFACE = """
     function salvarOperacao(event) {
         event.preventDefault();
         let total = 0;
-        let valoresJanelas = [];
-        document.querySelectorAll('.input-cota').forEach(i => {
+        let estruturaJanelas = [];
+        
+        document.querySelectorAll('.input-cota').forEach((i, idx) => {
             let val = parseInt(i.value) || 0;
             total += val;
-            valoresJanelas.push(val);
+            let horarioText = document.getElementById(`time_j_${idx}`).innerText;
+            estruturaJanelas.push({
+                janela_num: idx + 1,
+                horario: horarioText,
+                vagas: val,
+                ocupadas: 0, // Inicia zerado até a portaria ocupar
+                disponiveis: val // Inicialmente o saldo disponível é igual ao ofertado
+            });
         });
 
         if(total !== metaNecessaria) {
@@ -280,7 +271,7 @@ HTML_INTERFACE = """
             hora_inicio: document.getElementById('hora_inicio').value,
             num_janelas: document.getElementById('num_janelas').value,
             total_vagas: total,
-            janelas_detalhe: valoresJanelas
+            janelas_detalhe: estruturaJanelas
         };
 
         fetch('/api/salvar_disponibilidade', {
@@ -290,8 +281,8 @@ HTML_INTERFACE = """
         })
         .then(res => res.json())
         .then(data => {
-            alert(index === -1 ? "Disponibilidade publicada com sucesso!" : "Registro atualizado com sucesso!");
-            atualizarTabela(data);
+            alert("Gravação executada com sucesso!");
+            atualizarTabelaConsolidada(data);
             resetarFormularioCompleto();
         });
     }
@@ -299,7 +290,7 @@ HTML_INTERFACE = """
     function resetarFormularioCompleto() {
         document.getElementById('formOferta').reset();
         document.getElementById('edit_index').value = "-1";
-        document.getElementById('btn_submit').innerHTML = `<i class="fa-solid fa-cloud-arrow-up me-2"></i>PUBLICAR DISPONIBILIDADE`;
+        document.getElementById('btn_submit').innerHTML = `<i class="fa-solid fa-floppy-disk me-2"></i>GRAVAR DISPONIBILIDADE`;
         metaNecessaria = 0;
         document.getElementById('meta_badge').innerHTML = "Aguardando balsa...";
         document.getElementById('grade_container').innerHTML = "";
@@ -332,26 +323,56 @@ HTML_INTERFACE = """
         });
     }
 
-    function atualizarTabela(lista) {
-        const tbody = document.getElementById('tabela_ofertas');
+    function atualizarTabelaConsolidada(lista) {
+        const container = document.getElementById('lista_ofertas_consolidada');
         if(!lista || lista.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</td></tr>`;
+            container.innerHTML = `<div class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</div>`;
             return;
         }
-        tbody.innerHTML = "";
+        container.innerHTML = "";
+        
         lista.forEach((item, idx) => {
-            tbody.innerHTML += `<tr>
-                <td><b>${item.balsa}</b></td>
-                <td><span class="badge bg-light text-dark fw-bold" style="font-size:13px;">${formatarDataBR(item.data)}</span></td>
-                <td><span class="badge bg-dark">${item.hora_inicio}h</span></td>
-                <td><span class="badge bg-info text-dark">${item.num_janelas} Janelas</span></td>
-                <td><span class="badge bg-success">${item.total_vagas} CTS Alocados</span></td>
-                <td class="text-center">
-                    <button class="btn btn-warning btn-sm btn-edit fw-bold" onclick="editarRegistro(${idx})">
-                        <i class="fa-solid fa-pencil"></i> Editar
-                    </button>
-                </td>
-            </tr>`;
+            let linhasJanelasHtml = "";
+            item.janelas_detalhe.forEach(j => {
+                linhasJanelasHtml += `
+                    <tr>
+                        <td><span class="badge bg-secondary">Janela #${j.janela_num}</span></td>
+                        <td><b class="text-primary">${j.horario}</b></td>
+                        <td class="text-center fw-bold text-dark">${j.vagas}</td>
+                        <td class="text-center fw-bold text-danger">${j.ocupadas}</td>
+                        <td class="text-center fw-bold text-success bg-light">${j.disponiveis}</td>
+                    </tr>`;
+            });
+
+            container.innerHTML += `
+                <div class="card mb-3 border-secondary">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                        <div>
+                            <span class="fs-5 fw-bold text-dark me-3">⚓ ${item.balsa}</span>
+                            <span class="badge bg-dark me-2"><i class="fa-solid fa-calendar-days me-1"></i> ${formatarDataBR(item.data)}</span>
+                            <span class="badge bg-info text-dark"><i class="fa-solid fa-network-wired me-1"></i> ${item.num_janelas} Janelas Ativas</span>
+                        </div>
+                        <button class="btn btn-warning btn-sm fw-bold px-3" onclick="editarRegistro(${idx})">
+                            <i class="fa-solid fa-pencil me-1"></i> Editar Master
+                        </button>
+                    </div>
+                    <div class="p-2 bg-white">
+                        <table class="table table-sm table-bordered m-0 align-middle">
+                            <thead class="table-light text-secondary small text-uppercase">
+                                <tr>
+                                    <th>Identificador</th>
+                                    <th>Horário de Atendimento</th>
+                                    <th class="text-center" style="width:140px;">Vagas Ofertadas</th>
+                                    <th class="text-center" style="width:140px;">Cotas Ocupadas</th>
+                                    <th class="text-center" style="width:150px;">Vagas Disponíveis</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${linhasJanelasHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
         });
     }
 
@@ -371,7 +392,7 @@ def index():
     return render_template_string(
         HTML_INTERFACE, 
         lista_balsas=sorted(BALSAS_OPERACIONAIS.keys()), 
-        dicionario_balsas=BALSAS_OPERACIONAIS
+        dicionARIO_balsas=BALSAS_OPERACIONAIS
     )
 
 @app.route('/api/salvar_disponibilidade', methods=['POST'])
