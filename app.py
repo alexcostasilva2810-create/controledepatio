@@ -75,7 +75,7 @@ st.markdown("""
             font-weight: bold;
         }
         
-        /* Cabeçalho fake para simular tabela perfeitamente alinhada */
+        /* Cabeçalho fake para simular tabela perfeitamente alinhada nos módulos */
         .table-header-custom {
             background-color: #f1f3f5;
             padding: 8px;
@@ -88,11 +88,12 @@ st.markdown("""
             margin-bottom: 8px;
         }
         
-        /* Alinhamento de dados verticais das linhas */
+        /* Alinhamento de dados verticais das linhas dos módulos */
         .cell-data {
             font-size: 12px;
             color: #212529;
             padding-top: 8px;
+            text-align: center;
         }
         
         /* Ajuste do botão de download de NF para parecer um link limpo */
@@ -142,7 +143,7 @@ if "db_disponibilidades" not in st.session_state:
 if "db_agendamentos" not in st.session_state:
     st.session_state.db_agendamentos = [
         {"balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00", "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO", "nf": "154639", "volume": 51000.0, "produto": "ANIDRO", "arquivo_nome": "NF 1736.pdf"},
-        {"balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00", "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO", "nf": "154639", "volume": 51000.0, "produto": "ANIDRO", "arquivo_nome": "NF 1812.pdf"}
+        {"balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00", "placa": "HUG-9869", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO", "nf": "154639", "volume": 51000.0, "produto": "ANIDRO", "arquivo_nome": "NF 1812.pdf"}
     ]
 
 if "edit_index" not in st.session_state:
@@ -321,7 +322,7 @@ with tab_modulo1:
             st.toast("Disponibilidade publicada com sucesso!", icon="✨")
             st.rerun()
 
-    # Painel de Ofertas Vigentes
+    # CORREÇÃO AQUI: Painel de Ofertas Vigentes Configurado como Compacto e Centralizado
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema (Visão GD)</p>', unsafe_allow_html=True)
 
@@ -357,7 +358,21 @@ with tab_modulo1:
                     })
                 
                 df_display = pd.DataFrame(lista_tabela)
-                st.dataframe(df_display, use_container_width=True, hide_index=True)
+                
+                # Renderiza com visualização compacta e centralização explícita das colunas
+                st.dataframe(
+                    df_display, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    density="compact",
+                    column_config={
+                        "IDENTIFICADOR": st.column_config.TextColumn(alignment="center"),
+                        "HORÁRIO DE ATENDIMENTO": st.column_config.TextColumn(alignment="center"),
+                        "VAGAS OFERTADAS": st.column_config.NumberColumn(alignment="center"),
+                        "COTAS OCUPADAS": st.column_config.NumberColumn(alignment="center"),
+                        "VAGAS DISPONÍVEIS": st.column_config.NumberColumn(alignment="center"),
+                    }
+                )
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -373,25 +388,25 @@ with tab_modulo1:
             # Cabeçalho da tabela simulado em colunas nativas do Streamlit
             st.markdown("""
                 <div class="table-header-custom">
-                    <table style="width: 100%; border-collapse: collapse; border: none; background: transparent;">
+                    <table style="width: 100%; border-collapse: collapse; border: none; background: transparent; text-align: center;">
                         <tr>
-                            <td style="width: 9.5%;">Balsa</td>
-                            <td style="width: 9.5%;">Data</td>
-                            <td style="width: 11.5%;">Horário</td>
-                            <td style="width: 9.5%;">Placa</td>
-                            <td style="width: 9.5%;">Veículo</td>
-                            <td style="width: 13.5%;">Motorista</td>
-                            <td style="width: 9.5%;">Nº NF</td>
-                            <td style="width: 9.5%;">Volume</td>
-                            <td style="width: 9.5%;">Produto</td>
-                            <td style="width: 8.5%;">Anexo NF</td>
+                            <td style="width: 10%; text-align: center;">Balsa</td>
+                            <td style="width: 10%; text-align: center;">Data</td>
+                            <td style="width: 12%; text-align: center;">Horário</td>
+                            <td style="width: 10%; text-align: center;">Placa</td>
+                            <td style="width: 10%; text-align: center;">Veículo</td>
+                            <td style="width: 14%; text-align: center;">Motorista</td>
+                            <td style="width: 10%; text-align: center;">Nº NF</td>
+                            <td style="width: 10%; text-align: center;">Volume</td>
+                            <td style="width: 10%; text-align: center;">Produto</td>
+                            <td style="width: 8%; text-align: center;">Anexo NF</td>
                         </tr>
                     </table>
                 </div>
             """, unsafe_allow_html=True)
             
             for idx, ag in enumerate(st.session_state.db_agendamentos):
-                cols_m1 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.4, 1.0, 1.0, 1.0, 0.9])
+                cols_m1 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.4, 1.0, 1.0, 1.0, 0.8])
                 
                 cols_m1[0].markdown(f'<div class="cell-data"><b>{ag["balsa"]}</b></div>', unsafe_allow_html=True)
                 cols_m1[1].markdown(f'<div class="cell-data">{ag["data"]}</div>', unsafe_allow_html=True)
@@ -500,23 +515,22 @@ with tab_modulo2:
             if not st.session_state.db_agendamentos:
                 st.info("Nenhum caminhão agendado para esta programação até o momento.")
             else:
-                # Caso não esteja editando nenhuma linha, exibe o cabeçalho global das colunas
                 if st.session_state.edit_index == -1:
                     st.markdown("""
                         <div class="table-header-custom">
-                            <table style="width: 100%; border-collapse: collapse; border: none; background: transparent;">
+                            <table style="width: 100%; border-collapse: collapse; border: none; background: transparent; text-align: center;">
                                 <tr>
-                                    <td style="width: 10%;">Balsa</td>
-                                    <td style="width: 10%;">Data</td>
-                                    <td style="width: 12%;">Horário</td>
-                                    <td style="width: 10%;">Placa</td>
-                                    <td style="width: 10%;">Veículo</td>
-                                    <td style="width: 13%;">Motorista</td>
-                                    <td style="width: 10%;">Nº NF</td>
-                                    <td style="width: 9%;">Volume</td>
-                                    <td style="width: 8%;">Produto</td>
-                                    <td style="width: 8%;">NF File</td>
-                                    <td style="width: 10%;">Ações</td>
+                                    <td style="width: 10%; text-align: center;">Balsa</td>
+                                    <td style="width: 10%; text-align: center;">Data</td>
+                                    <td style="width: 12%; text-align: center;">Horário</td>
+                                    <td style="width: 10%; text-align: center;">Placa</td>
+                                    <td style="width: 10%; text-align: center;">Veículo</td>
+                                    <td style="width: 13%; text-align: center;">Motorista</td>
+                                    <td style="width: 10%; text-align: center;">Nº NF</td>
+                                    <td style="width: 9%; text-align: center;">Volume</td>
+                                    <td style="width: 8%; text-align: center;">Produto</td>
+                                    <td style="width: 8%; text-align: center;">NF File</td>
+                                    <td style="width: 10%; text-align: center;">Ações</td>
                                 </tr>
                             </table>
                         </div>
@@ -524,7 +538,6 @@ with tab_modulo2:
                 
                 for idx, ag in enumerate(st.session_state.db_agendamentos):
                     
-                    # Verificação se a linha atual está em modo de Edição
                     if st.session_state.edit_index == idx:
                         st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px; font-size:12px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
                         
@@ -548,11 +561,10 @@ with tab_modulo2:
                                 st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
                                 st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
                                 
-                                st.session_state.edit_index = -1  # Desativa o modo de edição
+                                st.session_state.edit_index = -1
                                 st.toast("Alterações salvas com sucesso!", icon="✨")
                                 st.rerun()
                     else:
-                        # Modo de exibição tradicional Alinhado perfeitamente em Colunas Nativas
                         cols_m2 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.3, 1.0, 0.9, 0.8, 0.8, 1.0])
                         
                         cols_m2[0].markdown(f'<div class="cell-data"><b>{ag["balsa"]}</b></div>', unsafe_allow_html=True)
@@ -565,7 +577,6 @@ with tab_modulo2:
                         cols_m2[7].markdown(f'<div class="cell-data">{float(ag["volume"]):.2f} m³</div>', unsafe_allow_html=True)
                         cols_m2[8].markdown(f'<div class="cell-data">{ag["produto"]}</div>', unsafe_allow_html=True)
                         
-                        # Coluna de Download do PDF da NF
                         with cols_m2[9]:
                             st.download_button(
                                 label="📄 PDF",
@@ -575,7 +586,6 @@ with tab_modulo2:
                                 key=f"m2_down_{idx}"
                             )
                             
-                        # Coluna do Botão de Edição
                         with cols_m2[10]:
                             if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
                                 st.session_state.edit_index = idx
