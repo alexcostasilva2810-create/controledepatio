@@ -4,27 +4,24 @@ from datetime import datetime, timedelta
 
 # Configuração da página para ocupar a tela cheia
 st.set_page_config(
-    page_title="Zion Tecnologia - Gestão Portuária",
+    page_title="Zion Tecnologia - Módulo 1",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS injetada para manter o design idêntico às imagens enviadas
+# Estilização CSS para o cabeçalho escuro e centralização do título
 st.markdown("""
     <style>
-        /* Desativa paddings padrão do Streamlit para colar os elementos */
-        .block-container { padding-top: 1.5rem; padding-bottom: 1rem; }
+        .block-container { padding-top: 1rem; padding-bottom: 1rem; }
         
-        /* Cabeçalho superior azul escuro */
+        /* Cabeçalho Superior Escuro */
         .header-top {
             background-color: #0b132b;
             color: white;
-            padding: 12px 20px;
+            padding: 15px 20px;
             border-radius: 6px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            margin-bottom: 25px;
+            text-align: center; /* Centraliza o título principal */
         }
         
         /* Títulos de Seções */
@@ -39,7 +36,7 @@ st.markdown("""
             margin-bottom: 0px;
         }
         
-        /* Container interno dos blocos (Simulação de Cards Bootstrap) */
+        /* Container interno dos blocos */
         .card-body-custom {
             background-color: #ffffff;
             border: 1px solid #dee2e6;
@@ -47,6 +44,7 @@ st.markdown("""
             border-bottom-right-radius: 6px;
             padding: 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+            margin-bottom: 20px;
         }
         
         /* Boxes brancos das Janelas de Horário */
@@ -54,9 +52,10 @@ st.markdown("""
             background-color: #ffffff;
             border: 1px solid #dee2e6;
             border-radius: 4px;
-            padding: 8px;
+            padding: 6px;
             text-align: center;
             font-family: 'Segoe UI', sans-serif;
+            margin-top: 5px;
         }
         .label-janela {
             font-size: 11px;
@@ -68,11 +67,7 @@ st.markdown("""
             font-weight: bold;
             color: #0d6efd;
             font-size: 13px;
-            margin-bottom: 2px;
         }
-        
-        /* Remove margens extras que o streamlit coloca entre componentes acoplados */
-        [data-testid="stVerticalBlock"] > div { gap: 0.2rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -108,21 +103,16 @@ BALSAS_OPERACIONAIS = {
 }
 
 # ==============================================================================
-# CABEÇALHO ZION TECNOLOGIA (CONFORME SOLICITADO)
+# CABEÇALHO CENTRALIZADO - ZION TECNOLOGIA
 # ==============================================================================
 st.markdown("""
     <div class="header-top">
-        <div>
-            <h4 style="margin: 0; font-weight: 700; color: white; letter-spacing: 0.5px;">SISTEMA DE PORTARIA & AGENDAMENTO LOGÍSTICO</h4>
-            <small style="color: #a0aec0;">Painel de Configuração Master - Zion Tecnologia</small>
-        </div>
-        <span class="badge" style="background-color: #0d6efd; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px;">
-            MÓDULO 1: GESTÃO DE DISPONIBILIDADE
-        </span>
+        <h2 style="margin: 0; font-weight: 800; color: white; letter-spacing: 1px;">ZION TECNOLOGIA - LOGÍSTICA</h2>
+        <p style="margin: 5px 0 0 0; color: #a0aec0; font-size: 14px;">SISTEMA DE PORTARIA & AGENDAMENTO LOGÍSTICO — MÓDULO 1: GESTÃO DE DISPONIBILIDADE</p>
     </div>
 """, unsafe_allow_html=True)
 
-# Layout de Colunas principais (Formulário na Esquerda [4], Distribuição na Direita [8])
+# Divisão de Colunas (Esquerda: Cadastro [4] | Direita: Distribuição [8])
 col_esq, col_dir = st.columns([4, 8], gap="medium")
 
 # ==============================================================================
@@ -134,42 +124,31 @@ with col_esq:
     with st.container():
         st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
         
-        # Seleção de balsa
         lista_opcoes = ["Selecione a Balsa Ofertada..."] + sorted(list(BALSAS_OPERACIONAIS.keys()))
         balsa_sel = st.selectbox("BALSA / EMBARCAÇÃO DISPONÍVEL", lista_opcoes)
         
-        # Gatilho de metadados
         cap_val, cts_val, cts_num = "0.0 m³", "0 CTS", 0
         if balsa_sel != "Selecione a Balsa Ofertada...":
             cap_val = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
             cts_num = BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"]
-            cap_val = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
             cts_val = f"{cts_num} CTS"
             
-        # Linha: Capacidade e Meta
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("CAPACIDADE (m³)", value=cap_val, disabled=True)
         with c2:
             st.text_input("EXIGÊNCIA (CTS)", value=cts_val, disabled=True)
             
-        # Linha: Data e Hora de Início
         c3, c4 = st.columns(2)
         with c3:
+            # Entrada de data padrão do Streamlit
             data_op = st.date_input("DATA DA OPERAÇÃO", datetime.today())
         with c4:
             hora_ini = st.time_input("HORA INÍCIO", datetime.strptime("06:00", "%H:%M").time())
             
-        # Linha: Quantidade de Janelas Operacionais
-        qtd_janelas = st.selectbox(
-            "QUANTIDADE DE JANELAS A DISPONIBILIBAR", 
-            [6, 10, 12, 18, 24], 
-            index=2, 
-            help="Defina quantas janelas o cliente verá no portal."
-        )
+        qtd_janelas = st.selectbox("QUANTIDADE DE JANELAS A DISPONIBILIBAR", [6, 10, 12, 18, 24], index=2)
         
         st.markdown("<br>", unsafe_allow_html=True)
-        # Botão de envio estilizado nativo do Streamlit (estilo submit)
         btn_publicar = st.button("☁ PUBLICAR DISPONIBILIDADE", type="primary", use_container_width=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
@@ -182,7 +161,7 @@ with col_dir:
     st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center;" class="titulo-secao">
             <span>🕒 Distribuição de Vagas por Janela</span>
-            <span class="badge bg-dark" style="font-size: 11px; padding: 2px 8px;">{badge_meta_top}</span>
+            <span style="background-color: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{badge_meta_top}</span>
         </div>
     """, unsafe_allow_html=True)
     
@@ -191,9 +170,9 @@ with col_dir:
         
         if balsa_sel == "Selecione a Balsa Ofertada...":
             st.info("Aguardando a seleção da balsa para gerar a grade de distribuição horária.")
+            total_alocado = 0
             vagas_digitadas = []
         else:
-            # Algoritmo de divisão exata + resto na primeira janela (idêntico ao seu)
             base_vagas = cts_num // qtd_janelas
             resto = cts_num % qtd_janelas
             
@@ -202,7 +181,7 @@ with col_dir:
             
             for i in range(qtd_janelas):
                 inicio_str = ponteiro_hora.strftime("%H:%M")
-                ponteiro_hora += timedelta(hours=1)  # Intervalo padrão de 1 hora por janela
+                ponteiro_hora += timedelta(hours=1)
                 fim_str = ponteiro_hora.strftime("%H:%M")
                 
                 vagas_sugeridas = base_vagas + (resto if i == 0 else 0)
@@ -212,14 +191,12 @@ with col_dir:
                     "vagas_padrao": vagas_sugeridas
                 })
             
-            # Renderização dos inputs numéricos em colunas de 4 em 4
             vagas_digitadas = []
             colunas_grid = st.columns(4)
             
             for idx, jan in enumerate(janelas_cronograma):
                 col_alvo = colunas_grid[idx % 4]
                 with col_alvo:
-                    # Rótulo HTML estilizado da janela
                     st.markdown(f"""
                         <div class="box-janela">
                             <span class="label-janela">Janela #{jan['id']}</span>
@@ -227,7 +204,6 @@ with col_dir:
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # Caixa de texto numérica acoplada logo abaixo da marcação visual
                     cota_input = st.number_input(
                         f"Janela_{jan['id']}_input",
                         min_value=0,
@@ -241,26 +217,26 @@ with col_dir:
                         "vagas": cota_input
                     })
             
-            # Barra de validação do status da alocação
             total_alocado = sum(item['vagas'] for item in vagas_digitadas)
             st.markdown("<br>", unsafe_allow_html=True)
             
             if total_alocado == cts_num:
                 st.success(f"✔ GRADE PERFEITA: {total_alocado} de {cts_num} CTS distribuídos.")
             elif total_alocado > cts_num:
-                st.error(f"❌ EXCESSO OPERACIONAL: Você distribuiu {total_alocado} CTS. O teto máximo permitido é {cts_num} CTS.")
+                st.error(f"❌ EXCESSO OPERACIONAL: Você distribuiu {total_alocado} CTS. O máximo permitido é {cts_num} CTS.")
             else:
-                st.warning(f"⚠️ ALOCAÇÃO INCOMPLETA: {total_alocado} de {cts_num} CTS distribuídos. Ajuste os valores nas janelas.")
+                st.warning(f"⚠️ ALOCAÇÃO INCOMPLETA: {total_alocado} de {cts_num} CTS distribuídos.")
                 
         st.markdown('</div>', unsafe_allow_html=True)
 
-# Lógica de gravação ao submeter o formulário
+# Lógica de Salvamento e Validação
 if balsa_sel != "Selecione a Balsa Ofertada..." and btn_publicar:
     if total_alocado != cts_num:
-        st.toast("Não foi possível salvar: A distribuição não corresponde à meta física da balsa.", icon="🚨")
+        st.toast("Erro: A distribuição não fecha com a meta física da balsa.", icon="🚨")
     else:
         nova_oferta = {
             "balsa": balsa_sel,
+            # Força a gravação da data no formato Brasileiro (PT-BR)
             "data_vigencia": data_op.strftime("%d/%m/%Y"),
             "config_grade": f"{qtd_janelas} Janelas Ativas",
             "janelas_detalhe": [
@@ -278,7 +254,7 @@ if balsa_sel != "Selecione a Balsa Ofertada..." and btn_publicar:
         st.rerun()
 
 # ==============================================================================
-# ELEMENTO INFERIOR: PAINEL DE OFERTAS VIGENTES NO SISTEMA
+# PAINEL INFERIOR: OFERTAS VIGENTES NO SISTEMA
 # ==============================================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema</p>', unsafe_allow_html=True)
@@ -287,26 +263,24 @@ with st.container():
     st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
     
     if not st.session_state.db_disponibilidades:
-        st.markdown('<div style="text-align: center; color: #6c757d; padding: 15px;">Nenhuma balsa cadastrada até o momento.</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhuma balsa cadastrada até o momento.</div>', unsafe_allow_html=True)
     else:
         for idx, item in enumerate(st.session_state.db_disponibilidades):
-            # Cabeçalho interno do bloco consolidado da balsa
             c_card1, c_card2 = st.columns([5, 1])
             with c_card1:
                 st.markdown(f"""
                     <div style="font-size: 15px; font-weight: bold; margin-bottom: 8px;">
                         ⚓ {item['balsa']} &nbsp;&nbsp;
-                        <span class="badge bg-dark" style="font-size: 11px; padding: 3px 6px; color:white; border-radius:3px;">📅 {item['data_vigencia']}</span> &nbsp;
-                        <span class="badge bg-info text-dark" style="font-size: 11px; padding: 3px 6px; border-radius:3px;">📊 {item['config_grade']}</span>
+                        <span style="background-color: #212529; color: white; font-size: 11px; padding: 3px 6px; border-radius:3px;">📅 {item['data_vigencia']}</span> &nbsp;
+                        <span style="background-color: #0d6efd; color: white; font-size: 11px; padding: 3px 6px; border-radius:3px;">📊 {item['config_grade']}</span>
                     </div>
                 """, unsafe_allow_html=True)
             with c_card2:
                 if st.button("Excluir Regra", key=f"del_regra_{idx}", type="secondary", use_container_width=True):
                     st.session_state.db_disponibilidades.pop(idx)
-                    st.toast("Regra excluída com sucesso.", icon="🗑️")
+                    st.toast("Regra operacional removida.", icon="🗑️")
                     st.rerun()
             
-            # Montagem do DataFrame estruturado para exibir a tabela
             lista_tabela = []
             for j in item['janelas_detalhe']:
                 lista_tabela.append({
@@ -318,8 +292,7 @@ with st.container():
                 })
             
             df_display = pd.DataFrame(lista_tabela)
-            # Renderiza a tabela limpa e ajustada à largura do container
             st.dataframe(df_display, use_container_width=True, hide_index=True)
-            st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
             
     st.markdown('</div>', unsafe_allow_html=True)
