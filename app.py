@@ -152,7 +152,7 @@ if "edit_index" not in st.session_state:
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
     "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24},
+    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD VII": {"capacidade": "1468.8 m³", "cta_meta": 24},
     "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
@@ -322,7 +322,7 @@ with tab_modulo1:
             st.toast("Disponibilidade publicada com sucesso!", icon="✨")
             st.rerun()
 
-    # CORREÇÃO DEFINITIVA: Mudança para visualização compacta e centralização via Pandas Styler
+    # SOLUÇÃO COMPACTA E CENTRALIZADA SEM ERROS
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema (Visão GD)</p>', unsafe_allow_html=True)
 
@@ -352,22 +352,26 @@ with tab_modulo1:
                     lista_tabela.append({
                         "IDENTIFICADOR": f"Janela #{j['janela_num']}",
                         "HORÁRIO DE ATENDIMENTO": j['horario'],
-                        "VAGAS OFERTADAS": j['vagas'],
-                        "COTAS OCUPADAS": j['ocupadas'],
-                        "VAGAS DISPONÍVEIS": j['disponiveis']
+                        "VAGAS OFERTADAS": int(j['vagas']),
+                        "COTAS OCUPADAS": int(j['ocupadas']),
+                        "VAGAS DISPONÍVEIS": int(j['disponiveis'])
                     })
                 
                 df_display = pd.DataFrame(lista_tabela)
                 
-                # Força centralização via CSS do Pandas DataFrame
-                df_style = df_display.style.set_properties(**{'text-align': 'center'})
-                
-                # Renderiza de forma segura e limpa
+                # Centralização nativa configurada individualmente por coluna mapeada de strings
                 st.dataframe(
-                    df_style, 
+                    df_display, 
                     use_container_width=True, 
                     hide_index=True,
-                    density="compact"
+                    density="compact",
+                    column_config={
+                        "IDENTIFICADOR": st.column_config.Column(alignment="center"),
+                        "HORÁRIO DE ATENDIMENTO": st.column_config.Column(alignment="center"),
+                        "VAGAS OFERTADAS": st.column_config.Column(alignment="center"),
+                        "COTAS OCUPADAS": st.column_config.Column(alignment="center"),
+                        "VAGAS DISPONÍVEIS": st.column_config.Column(alignment="center"),
+                    }
                 )
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
