@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS customizada (Layout e Centralização)
+# Estilização CSS customizada (Layout, Centralização e Cores)
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 1rem; }
@@ -81,13 +81,12 @@ st.markdown("""
 # BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
 # ==============================================================================
 if "db_disponibilidades" not in st.session_state:
-    # Criação de um registro fictício inicial para o sistema não iniciar vazio
     st.session_state.db_disponibilidades = [{
         "balsa": "SD II",
         "data_vigencia": "12/06/2026",
         "config_grade": "12 Janelas Ativas",
         "janelas_detalhe": [
-            {"janela_num": 1, "horario": "06:00 às 07:00", "vagas": 5, "ocupadas": 0, "disponiveis": 5},
+            {"janela_num": 1, "horario": "06:00 às 07:00", "vagas": 5, "ocupadas": 2, "disponiveis": 3},
             {"janela_num": 2, "horario": "07:00 às 08:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
             {"janela_num": 3, "horario": "08:00 às 09:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
             {"janela_num": 4, "horario": "09:00 às 10:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
@@ -103,7 +102,13 @@ if "db_disponibilidades" not in st.session_state:
     }]
 
 if "db_agendamentos" not in st.session_state:
-    st.session_state.db_agendamentos = []
+    st.session_state.db_agendamentos = [
+        {"balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00", "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO", "nf": "154639", "volume": 51000.0, "produto": "ANIDRO", "arquivo_nome": "NF 1736.pdf"},
+        {"balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00", "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO", "nf": "154639", "volume": 51000.0, "produto": "ANIDRO", "arquivo_nome": "NF 1812.pdf"}
+    ]
+
+if "edit_index" not in st.session_state:
+    st.session_state.edit_index = -1
 
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17},
@@ -131,7 +136,7 @@ BALSAS_OPERACIONAIS = {
 }
 
 # ==============================================================================
-# CABEÇALHO CENTRALIZADO - ZION TECNOLOGIA
+# CABEÇALHO CENTRALIZADO
 # ==============================================================================
 st.markdown("""
     <div class="header-top">
@@ -140,8 +145,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Criação das abas de navegação dos Módulos
-tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "🚛 MÓDULO 2: Portal de Agendamento (Cliente FS)"])
+tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "C MÓDULO 2: Portal de Agendamento (Cliente FS)"])
 
 # ==============================================================================
 # ABA 1: MÓDULO GESTÃO DE DISPONIBILIDADE (GD)
@@ -290,7 +294,7 @@ with tab_modulo1:
             st.toast("Disponibilidade publicada com sucesso!", icon="✨")
             st.rerun()
 
-    # Painel de Ofertas Vigentes (Visão Consolidada da GD)
+    # Painel de Ofertas Vigentes
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema (Visão GD)</p>', unsafe_allow_html=True)
 
@@ -330,82 +334,102 @@ with tab_modulo1:
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
+    # --------------------------------------------------------------------------
+    # NOVA SEÇÃO SOLICITADA: AGENDADOS (VISUALIZAÇÃO COMPLETA PELA GD)
+    # --------------------------------------------------------------------------
+    st.markdown('<p class="titulo-secao">📋 AGENDADOS</p>', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
+        if not st.session_state.db_agendamentos:
+            st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhum veículo agendado no sistema até o momento.</div>', unsafe_allow_html=True)
+        else:
+            lista_gd_agendados = []
+            for ag in st.session_state.db_agendamentos:
+                lista_gd_agendados.append({
+                    "BALSA": ag["balsa"],
+                    "DATA": ag["data"],
+                    "HORÁRIO": ag["janela"],
+                    "PLACA": ag["placa"],
+                    "VEÍCULO": ag["veiculo"],
+                    "MOTORISTA": ag["motorista"],
+                    "Nº NF": ag["nf"],
+                    "VOLUME M³": f"{ag['volume']:.2f} m³" if isinstance(ag['volume'], (int, float)) else ag['volume'],
+                    "PRODUTO": ag["produto"],
+                    "ANEXO NF": ag["arquivo_nome"]
+                })
+            df_gd_view = pd.DataFrame(lista_gd_agendados)
+            st.dataframe(df_gd_view, use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
 # ==============================================================================
 # ABA 2: MÓDULO 2 - PORTAL DE AGENDAMENTO (CLIENTE FS)
 # ==============================================================================
 with tab_modulo2:
-    col_fs_esq, col_fs_dir = st.columns([5, 7], gap="medium")
+    col_fs_esq, col_fs_dir = st.columns([4, 8], gap="medium")
     
     with col_fs_esq:
         st.markdown('<p class="titulo-secao">📝 Formulário de Agendamento Logístico</p>', unsafe_allow_html=True)
         with st.container():
             st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
             
-            # Passo 1: Selecionar balsa ativa cadastrada pelo Módulo 1
             if not st.session_state.db_disponibilidades:
                 st.warning("Nenhuma balsa ou oferta está disponível no momento. Aguarde a publicação da GD.")
                 oferta_selecionada = None
             else:
                 opcoes_ofertas = [f"{o['balsa']} - Vigência: {o['data_vigencia']}" for o in st.session_state.db_disponibilidades]
-                idx_oferta = st.selectbox("1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO", range(len(opcoes_ofertas)), format_func=lambda x: opcoes_ofertas[x])
+                idx_oferta = st.selectbox("1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO", range(len(opcoes_ofertas)), format_func=lambda x: opcoes_ofertas[x], key="fs_oferta_sel")
                 oferta_selecionada = st.session_state.db_disponibilidades[idx_oferta]
             
             if oferta_selecionada:
-                # Passo 2: Selecionar a janela horária disponível daquela balsa
                 opcoes_janelas = []
                 for jan in oferta_selecionada["janelas_detalhe"]:
                     status_vagas = f"({jan['disponiveis']} vagas restantes)" if jan['disponiveis'] > 0 else "(ESGOTADA)"
                     opcoes_janelas.append(f"Janela #{jan['janela_num']} [{jan['horario']}] {status_vagas}")
                 
-                janela_idx_sel = st.selectbox("2. ESCOLHA O HORÁRIO DA JANELA", range(len(opcoes_janelas)), format_func=lambda x: opcoes_janelas[x])
+                janela_idx_sel = st.selectbox("2. ESCOLHA O HORÁRIO DA JANELA", range(len(opcoes_janelas)), format_func=lambda x: opcoes_janelas[x], key="fs_janela_sel")
                 janela_objeto = oferta_selecionada["janelas_detalhe"][janela_idx_sel]
                 
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
                 
-                # Passo 3: Campos solicitados para o Cliente FS
                 c_fs1, c_fs2 = st.columns(2)
                 with c_fs1:
-                    placa = st.text_input("PLACA", placeholder="ABC-1234")
-                    motorista = st.text_input("MOTORISTA", placeholder="Nome Completo")
+                    placa = st.text_input("PLACA", placeholder="ABC-1234", key="form_placa")
+                    motorista = st.text_input("MOTORISTA", placeholder="Nome Completo", key="form_moto")
                 with c_fs2:
-                    veiculo = st.text_input("VEÍCULO", placeholder="Ex: Carreta Bitrem")
-                    num_nf = st.text_input("Nº NOTA FISCAL", placeholder="Apenas números")
+                    veiculo = st.text_input("VEÍCULO", placeholder="Ex: Carreta Bitrem", key="form_veic")
+                    num_nf = st.text_input("Nº NOTA FISCAL", placeholder="Apenas números", key="form_nf")
                     
                 c_fs3, c_fs4 = st.columns(2)
                 with c_fs3:
-                    volume = st.number_input("VOLUME M³", min_value=0.0, value=0.0, step=0.1, format="%.2f")
+                    volume = st.number_input("VOLUME M³", min_value=0.0, value=0.0, step=100.0, format="%.2f", key="form_vol")
                 with c_fs4:
-                    produto = st.text_input("PRODUTO", placeholder="Ex: Milho / Soja")
+                    produto = st.text_input("PRODUTO", placeholder="Ex: ANIDRO", key="form_prod")
                     
-                # Upload de Arquivo da Nota Fiscal
-                arquivo_nf = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL)", type=["pdf", "jpg", "png"])
+                arquivo_nf = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL)", type=["pdf", "jpg", "png"], key="form_file")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 btn_confirmar_agendamento = st.button("🔒 CONFIRMAR AGENDAMENTO FS", type="primary", use_container_width=True)
                 
                 if btn_confirmar_agendamento:
-                    # Validações dos campos preenchidos
                     if not (placa and veiculo and motorista and num_nf and volume > 0 and produto):
                         st.error("Por favor, preencha todos os campos obrigatórios e garanta que o volume seja maior que zero.")
                     elif janela_objeto["disponiveis"] <= 0:
                         st.error("Não foi possível agendar: Esta janela já se encontra esgotada!")
                     else:
-                        # Deduz cota do banco de dados compartilhado (Session State)
                         janela_objeto["ocupadas"] += 1
                         janela_objeto["disponiveis"] -= 1
                         
-                        # Salva o log do agendamento
                         novo_agendamento = {
                             "balsa": oferta_selecionada["balsa"],
                             "data": oferta_selecionada["data_vigencia"],
                             "janela": janela_objeto["horario"],
                             "placa": placa.upper(),
-                            "veiculo": veiculo,
-                            "motorista": motorista,
+                            "veiculo": veiculo.upper(),
+                            "motorista": motorista.upper(),
                             "nf": num_nf,
-                            "volume": f"{volume} m³",
-                            "produto": produto,
-                            "arquivo_nome": arquivo_nf.name if arquivo_nf is not None else "Não anexado"
+                            "volume": float(volume),
+                            "produto": produto.upper(),
+                            "arquivo_nome": arquivo_nf.name if arquivo_nf is not None else "NF_Anexa.pdf"
                         }
                         st.session_state.db_agendamentos.append(novo_agendamento)
                         st.success("Agendamento efetuado com sucesso!")
@@ -420,13 +444,59 @@ with tab_modulo2:
             if not st.session_state.db_agendamentos:
                 st.info("Nenhum caminhão agendado para esta programação até o momento.")
             else:
-                df_agendados = pd.DataFrame(st.session_state.db_agendamentos)
-                # Traduz as colunas para o usuário de forma limpa na tabela
-                df_agendados_view = df_agendados.rename(columns={
-                    "balsa": "BALSA", "data": "DATA", "janela": "HORÁRIO",
-                    "placa": "PLACA", "veiculo": "VEÍCULO", "motorista": "MOTORISTA",
-                    "nf": "Nº NF", "volume": "VOLUME", "produto": "PRODUTO", "arquivo_nome": "ANEXO NF"
-                })
-                st.dataframe(df_agendados_view, use_container_width=True, hide_index=True)
-                
+                # Loop para renderizar cada linha com opção de edição em tempo real
+                for idx, ag in enumerate(st.session_state.db_agendamentos):
+                    # Se este índice for o selecionado para edição, monta o formulário inline
+                    if st.session_state.edit_index == idx:
+                        st.markdown(f"**Modo Edição - Registro #{idx+1}**")
+                        c_ed1, c_ed2, c_ed3 = st.columns(3)
+                        with c_ed1:
+                            ed_placa = st.text_input("PLACA", value=ag["placa"], key=f"ed_placa_{idx}")
+                            ed_motorista = st.text_input("MOTORISTA", value=ag["motorista"], key=f"ed_moto_{idx}")
+                        with c_ed2:
+                            ed_veiculo = st.text_input("VEÍCULO", value=ag["veiculo"], key=f"ed_veic_{idx}")
+                            ed_nf = st.text_input("Nº NF", value=ag["nf"], key=f"ed_nf_{idx}")
+                        with c_ed3:
+                            ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), key=f"ed_vol_{idx}")
+                            ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
+                        
+                        # Botão Salvar na cor Verde Estrita
+                        st.markdown("""
+                            <style>
+                                div.stButton > button[key^="save_btn_"] {
+                                    background-color: #28a745 !important;
+                                    color: white !important;
+                                    border: none !important;
+                                }
+                            </style>
+                        """, unsafe_allow_html=True)
+                        
+                        if st.button("✔ SALVAR ALTERAÇÕES", key=f"save_btn_{idx}", type="primary"):
+                            st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
+                            st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
+                            st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
+                            st.session_state.db_agendamentos[idx]["nf"] = ed_nf
+                            st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
+                            st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
+                            
+                            st.session_state.edit_index = -1  # Desativa modo edição
+                            st.toast("Alterações salvas com sucesso!", icon="✨")
+                            st.rerun()
+                    else:
+                        # Exibição normal com layout de colunas similar ao print fornecido
+                        c_row1, c_row2 = st.columns([8, 2])
+                        with c_row1:
+                            st.markdown(f"""
+                            <div style="background-color:#f8f9fa; padding:10px; border-radius:4px; border-left:4px solid #0d6efd; margin-bottom:5px; font-size:12px;">
+                                <strong>BALSA:</strong> {ag['balsa']} | <strong>DATA:</strong> {ag['data']} | <strong>HORÁRIO:</strong> {ag['janela']} <br>
+                                <strong>PLACA:</strong> {ag['placa']} | <strong>VEÍCULO:</strong> {ag['veiculo']} | <strong>MOTORISTA:</strong> {ag['motorista']} <br>
+                                <strong>Nº NF:</strong> {ag['nf']} | <strong>VOLUME:</strong> {ag['volume']:.2f} m³ | <strong>PRODUTO:</strong> {ag['produto']} | <strong>ANEXO:</strong> {ag['arquivo_nome']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                        with c_row2:
+                            if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
+                                st.session_state.edit_index = idx
+                                st.rerun()
+                    st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+                    
             st.markdown('</div>', unsafe_allow_html=True)
