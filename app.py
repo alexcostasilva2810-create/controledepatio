@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS para o cabeçalho escuro e centralização do título
+# Estilização CSS para fixar a identidade visual e o cabeçalho centralizado
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 1rem; }
@@ -21,7 +21,7 @@ st.markdown("""
             padding: 15px 20px;
             border-radius: 6px;
             margin-bottom: 25px;
-            text-align: center; /* Centraliza o título principal */
+            text-align: center;
         }
         
         /* Títulos de Seções */
@@ -95,15 +95,20 @@ BALSAS_OPERACIONAIS = {
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13},
-    "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XX": {"capacidade": "2998.8 m³", "cyan_meta": 49},
     "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
 
+# Fix para compatibilidade de chaves internas
+for k in BALSAS_OPERACIONAIS:
+    if "cyan_meta" in BALSAS_OPERACIONAIS[k]:
+        BALSAS_OPERACIONAIS[k]["cts_meta"] = BALSAS_OPERACIONAIS[k].pop("cyan_meta")
+
 # ==============================================================================
-# CABEÇALHO CENTRALIZADO - ZION TECNOLOGIA
+# CABEÇALHO CENTRALIZADO - ZION TECNOLOGIA - LOGÍSTICA
 # ==============================================================================
 st.markdown("""
     <div class="header-top">
@@ -112,7 +117,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Divisão de Colunas (Esquerda: Cadastro [4] | Direita: Distribuição [8])
+# Distribuição de tela em duas colunas principais
 col_esq, col_dir = st.columns([4, 8], gap="medium")
 
 # ==============================================================================
@@ -141,8 +146,9 @@ with col_esq:
             
         c3, c4 = st.columns(2)
         with c3:
-            # Entrada de data padrão do Streamlit
-            data_op = st.date_input("DATA DA OPERAÇÃO", datetime.today())
+            # Substituição do date_input por text_input para travar o formato DD/MM/AAAA na interface
+            data_atual_ptbr = datetime.today().strftime("%d/%m/%Y")
+            data_str = st.text_input("DATA DA OPERAÇÃO (DD/MM/AAAA)", value=data_atual_ptbr)
         with c4:
             hora_ini = st.time_input("HORA INÍCIO", datetime.strptime("06:00", "%H:%M").time())
             
@@ -177,7 +183,12 @@ with col_dir:
             resto = cts_num % qtd_janelas
             
             janelas_cronograma = []
-            ponteiro_hora = datetime.combine(data_op, hora_ini)
+            try:
+                base_data = datetime.strptime(data_str, "%d/%m/%Y").date()
+            except:
+                base_data = datetime.today().date()
+                
+            ponteiro_hora = datetime.combine(base_data, hora_ini)
             
             for i in range(qtd_janelas):
                 inicio_str = ponteiro_hora.strftime("%H:%M")
@@ -229,15 +240,23 @@ with col_dir:
                 
         st.markdown('</div>', unsafe_allow_html=True)
 
-# Lógica de Salvamento e Validação
+# Validação e Processo de Salvamento
 if balsa_sel != "Selecione a Balsa Ofertada..." and btn_publicar:
-    if total_alocado != cts_num:
-        st.toast("Erro: A distribuição não fecha com a meta física da balsa.", icon="🚨")
+    # Validação do formato de data inserido pelo utilizador
+    try:
+        data_validada = datetime.strptime(data_str, "%d/%m/%Y").strftime("%d/%m/%Y")
+        data_erro = False
+    except ValueError:
+        data_erro = True
+        
+    if data_erro:
+        st.toast("Erro: Introduza a data no formato correto DD/MM/AAAA (Ex: 12/06/2026)", icon="🚨")
+    elif total_alocado != cts_num:
+        st.toast("Erro: A distribuição não coincide com a meta física da balsa.", icon="🚨")
     else:
         nova_oferta = {
             "balsa": balsa_sel,
-            # Força a gravação da data no formato Brasileiro (PT-BR)
-            "data_vigencia": data_op.strftime("%d/%m/%Y"),
+            "data_vigencia": data_validada,
             "config_grade": f"{qtd_janelas} Janelas Ativas",
             "janelas_detalhe": [
                 {
