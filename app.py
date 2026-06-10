@@ -12,7 +12,7 @@ BALSAS_OPERACIONAIS = {
     "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD VII": {"capacidade": "1468.8 m³", "cta_meta": 24},
+    "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24},
     "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23},
@@ -53,7 +53,6 @@ HTML_INTERFACE = """
         .status-badge { font-size: 15px; font-weight: 700; padding: 15px; border-radius: 8px; display: block; text-align: center; margin-bottom: 20px; }
         .label-custom { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
         .badge-meta { background: var(--primary); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-size: 12px; }
-        .sub-table-container { background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #2c74b3; }
     </style>
 </head>
 <body>
@@ -254,8 +253,8 @@ HTML_INTERFACE = """
                 janela_num: idx + 1,
                 horario: horarioText,
                 vagas: val,
-                ocupadas: 0, // Inicia zerado até a portaria ocupar
-                disponiveis: val // Inicialmente o saldo disponível é igual ao ofertado
+                ocupadas: 0,
+                disponiveis: val
             });
         });
 
@@ -295,124 +294,4 @@ HTML_INTERFACE = """
         document.getElementById('meta_badge').innerHTML = "Aguardando balsa...";
         document.getElementById('grade_container').innerHTML = "";
         document.getElementById('status_alocacao').className = "status-badge alert-secondary";
-        document.getElementById('status_alocacao').innerHTML = "Selecione os parâmetros ao lado para gerar a grade.";
-        initJanelasSelect();
-    }
-
-    function editarRegistro(index) {
-        fetch(`/api/obter_registro/${index}`)
-        .then(res => res.json())
-        .then(item => {
-            document.getElementById('edit_index').value = index;
-            document.getElementById('balsa_id').value = item.balsa;
-            metaNecessaria = dataBalsas[item.balsa].cts_meta;
-            
-            document.getElementById('cap_view').value = dataBalsas[item.balsa].capacidade;
-            document.getElementById('cts_view').value = metaNecessaria + " CTS";
-            document.getElementById('meta_badge').innerHTML = `EDITANDO - META: ${metaNecessaria} CTS`;
-            
-            document.getElementById('data_op').value = item.data;
-            document.getElementById('hora_inicio').value = item.hora_inicio;
-            document.getElementById('num_janelas').value = item.num_janelas;
-            
-            dadosTemporariosEdicao = item.janelas_detalhe;
-            document.getElementById('btn_submit').innerHTML = `<i class="fa-solid fa-floppy-disk me-2"></i>SALVAR ALTERAÇÕES`;
-            
-            gerarGradeJanelas();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    }
-
-    function atualizarTabelaConsolidada(lista) {
-        const container = document.getElementById('lista_ofertas_consolidada');
-        if(!lista || lista.length === 0) {
-            container.innerHTML = `<div class="text-center text-muted py-3">Nenhuma regra cadastrada até o momento.</div>`;
-            return;
-        }
-        container.innerHTML = "";
-        
-        lista.forEach((item, idx) => {
-            let linhasJanelasHtml = "";
-            item.janelas_detalhe.forEach(j => {
-                linhasJanelasHtml += `
-                    <tr>
-                        <td><span class="badge bg-secondary">Janela #${j.janela_num}</span></td>
-                        <td><b class="text-primary">${j.horario}</b></td>
-                        <td class="text-center fw-bold text-dark">${j.vagas}</td>
-                        <td class="text-center fw-bold text-danger">${j.ocupadas}</td>
-                        <td class="text-center fw-bold text-success bg-light">${j.disponiveis}</td>
-                    </tr>`;
-            });
-
-            container.innerHTML += `
-                <div class="card mb-3 border-secondary">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-                        <div>
-                            <span class="fs-5 fw-bold text-dark me-3">⚓ ${item.balsa}</span>
-                            <span class="badge bg-dark me-2"><i class="fa-solid fa-calendar-days me-1"></i> ${formatarDataBR(item.data)}</span>
-                            <span class="badge bg-info text-dark"><i class="fa-solid fa-network-wired me-1"></i> ${item.num_janelas} Janelas Ativas</span>
-                        </div>
-                        <button class="btn btn-warning btn-sm fw-bold px-3" onclick="editarRegistro(${idx})">
-                            <i class="fa-solid fa-pencil me-1"></i> Editar Master
-                        </button>
-                    </div>
-                    <div class="p-2 bg-white">
-                        <table class="table table-sm table-bordered m-0 align-middle">
-                            <thead class="table-light text-secondary small text-uppercase">
-                                <tr>
-                                    <th>Identificador</th>
-                                    <th>Horário de Atendimento</th>
-                                    <th class="text-center" style="width:140px;">Vagas Ofertadas</th>
-                                    <th class="text-center" style="width:140px;">Cotas Ocupadas</th>
-                                    <th class="text-center" style="width:150px;">Vagas Disponíveis</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${linhasJanelasHtml}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>`;
-        });
-    }
-
-    window.onload = function() {
-        initJanelasSelect();
-    };
-</script>
-</body>
-</html>
-"""
-
-# ==============================================================================
-# ENDPOINTS API (GERENCIAMENTO E SALVAMENTO COM ÍNDICE DE EDIÇÃO)
-# ==============================================================================
-@app.route('/')
-def index():
-    return render_template_string(
-        HTML_INTERFACE, 
-        lista_balsas=sorted(BALSAS_OPERACIONAIS.keys()), 
-        dicionARIO_balsas=BALSAS_OPERACIONAIS
-    )
-
-@app.route('/api/salvar_disponibilidade', methods=['POST'])
-def api_salvar():
-    req = request.json
-    index = int(req.get('index', -1))
-    dados = req.get('dados')
-    
-    if index == -1:
-        DISPONIBILIDADES_DB.append(dados)
-    else:
-        DISPONIBILIDADES_DB[index] = dados
-        
-    return jsonify(DISPONIBILIDADES_DB)
-
-@app.route('/api/obter_registro/<int:index>', methods=['GET'])
-def api_obter(index):
-    if 0 <= index < len(DISPONIBILIDADES_DB):
-        return jsonify(DISPONIBILIDADES_DB[index])
-    return jsonify({}), 404
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+        document.getElementById('
