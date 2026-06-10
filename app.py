@@ -1,7 +1,54 @@
-import os
-from flask import Flask, render_template_string, request, jsonify
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
 
-app = Flask(__name__)
+# Configuração da página para ocupar a tela cheia
+st.set_page_config(
+    page_title="SISTEMA DE PORTARIA & AGENDAMENTO LOGÍSTICO",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# Estilização customizada para manter a identidade visual executiva (Zion Tecnologia)
+st.markdown("""
+    <style>
+        .header-top {
+            background-color: #0b132b;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .box-janela {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .label-custom {
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .meta-text {
+            color: #0284c7;
+            font-weight: bold;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# ==============================================================================
+# BANCO DE DADOS EM MEMÓRIA (STREAMLIT SESSION STATE)
+# ==============================================================================
+if "db_disponibilidades" not in st.session_state:
+    st.session_state.db_disponibilidades = []
 
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17},
@@ -28,267 +75,196 @@ BALSAS_OPERACIONAIS = {
     "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
 
-DISPONIBILIDADES_DB = []
-
-HTML_INTERFACE = """
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Zion Tecnologia - Gestão de Porto</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f4f6f9; padding: 25px; font-family: sans-serif; }
-        .box-janela { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; text-align: center; }
-        .input-cota { font-weight: bold; text-align: center; font-size: 18px; }
-        .status-badge { padding: 12px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 15px; }
-    </style>
-</head>
-<body>
-
-    <div class="container-fluid">
-        <div class="bg-dark text-white p-3 rounded mb-4">
-            <h3>⚓ SISTEMA DE PORTARIA & AGENDAMENTO LOGÍSTICO</h3>
-            <p class="m-0 text-info">Módulo 1: Gestão de Disponibilidade (GD)</p>
-        </div>
-
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-secondary text-white fw-bold">Configuração da Oferta</div>
-                    <div class="card-body">
-                        <form id="formOferta" onsubmit="salvarOperacao(event)">
-                            <input type="hidden" id="edit_index" value="-1">
-                            
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Balsa / Embarcação</label>
-                                <select class="form-select fw-bold" id="balsa_id" onchange="carregarMetricasBalsa()" required>
-                                    <option value="">Selecione...</option>
-                                    {% for balsa in lista_balsas %}
-                                    <option value="{{ balsa }}">{{ balsa }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-6">
-                                    <label class="form-label small">Capacidade</label>
-                                    <input type="text" class="form-control bg-light" id="cap_view" readonly>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small">Meta (CTS)</label>
-                                    <input type="text" class="form-control bg-light" id="cts_view" readonly>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-6">
-                                    <label class="form-label small">Data</label>
-                                    <input type="date" class="form-control" id="data_op" required>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small">Hora Início</label>
-                                    <input type="time" class="form-control" id="hora_inicio" value="06:00" onchange="gerarGradeJanelas()" required>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label small">Quantidade de Janelas</label>
-                                <select class="form-select" id="num_janelas" onchange="gerarGradeJanelas()" required>
-                                    <option value="12">12 Janelas Operacionais</option>
-                                    <option value="6">6 Janelas Operacionais</option>
-                                    <option value="24">24 Janelas Operacionais</option>
-                                </select>
-                            </div>
-
-                            <button type="submit" class="btn btn-success w-100 fw-bold" id="btn_submit">GRAVAR DISPONIBILIDADE</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between">
-                        <span>Distribuição de Vagas por Janela</span>
-                        <span id="meta_badge" class="badge bg-info text-dark">Aguardando balsa...</span>
-                    </div>
-                    <div class="card-body">
-                        <div id="status_alocacao" class="status-badge alert-secondary">Configure os dados ao lado.</div>
-                        <div class="row g-2" id="grade_container"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card mt-4 shadow-sm">
-            <div class="card-header bg-secondary text-white fw-bold">Painel de Ofertas Vigentes no Sistema</div>
-            <div class="p-3">
-                <div id="lista_ofertas_consolidada"></div>
-            </div>
+# ==============================================================================
+# TOPO DO SISTEMA
+# ==============================================================================
+st.markdown("""
+    <div class="header-top">
+        <div>
+            <h3 style="margin: 0; font-weight: 700; color: white;">⚓ SISTEMA DE PORTARIA & AGENDAMENTO LOGÍSTICO</h3>
+            <span style="color: #94a3b8; font-size: 14px;">Painel de Configuração Master - Zion Tecnologia</span>
         </div>
     </div>
+""", unsafe_allow_html=True)
 
-<script>
-    const dataBalsas = {{ dicionario_balsas | tojson }};
-    let metaNecessaria = 0;
-    let dadosTemporariosEdicao = null;
+st.subheader("MÓDULO 1: GESTÃO DE DISPONIBILIDADE (GD)")
 
-    function carregarMetricasBalsa() {
-        const balsa = document.getElementById('balsa_id').value;
-        if(balsa && dataBalsas[balsa]) {
-            metaNecessaria = dataBalsas[balsa].cts_meta;
-            document.getElementById('cap_view').value = dataBalsas[balsa].capacidade;
-            document.getElementById('cts_view').value = metaNecessaria + " CTS";
-            document.getElementById('meta_badge').innerHTML = `META: ${metaNecessaria} CTS`;
-            gerarGradeJanelas();
-        }
-    }
+# Divisão de colunas principais (Formulário à esquerda, Grade à direita)
+col_form, col_grade = st.columns([1, 2], gap="large")
 
-    function gerarGradeJanelas() {
-        const container = document.getElementById('grade_container');
-        const totalJanelas = parseInt(document.getElementById('num_janelas').value);
-        const horaBase = document.getElementById('hora_inicio').value;
+with col_form:
+    st.subheader("Cadastro de Oferta de Balsa")
+    
+    # Campo 1: Localidade / Embarcação
+    lista_balsas_keys = ["Selecione a Balsa Ofertada..."] + sorted(list(BALSAS_OPERACIONAIS.keys()))
+    balsa_selecionada = st.selectbox("LOCALIDADE / EMBARCAÇÃO", lista_balsas_keys, label_visibility="visible")
+    
+    # Validações e métricas automáticas
+    capacidade_view = "0.0 m³"
+    meta_view = "0 CTS"
+    meta_num = 0
+    
+    if balsa_selecionada != "Selecione a Balsa Ofertada...":
+        capacidade_view = BALSAS_OPERACIONAIS[balsa_selecionada]["capacidade"]
+        meta_num = BALSAS_OPERACIONAIS[balsa_selecionada]["cts_meta"]
+        meta_view = f"{meta_num} CTS"
+
+    # Campos de leitura lado a lado
+    c1, c2 = st.columns(2)
+    with c1:
+        st.text_input("Capacidade Volumétrica", value=capacidade_view, disabled=True)
+    with c2:
+        st.text_input("Exigência Física (Meta)", value=meta_view, disabled=True)
         
-        if(!metaNecessaria || !container) return;
-        container.innerHTML = "";
+    # Vigência e Primeiro Agendamento
+    c3, c4 = st.columns(2)
+    with c3:
+        data_vigencia = st.date_input("VIGÊNCIA DA DISPONIBILIDADE", datetime.today())
+    with c4:
+        hora_inicio = st.time_input("HORA DO 1º AGENDAMENTO", datetime.strptime("07:00", "%H:%M").time())
+        
+    # Intervalo e Qtd de Janelas
+    c5, c6 = st.columns(2)
+    with c5:
+        intervalo_opcao = st.selectbox("INTERVALO (FREQ.)", ["A cada 1 hora", "A cada 2 horas"], index=1)
+        freq_horas = 1 if "1 hora" in intervalo_opcao else 2
+    with c6:
+        qtd_janelas = st.selectbox("QTD DE JANELAS", [6, 12, 18, 24], index=1)
 
-        let [h, m] = horaBase.split(':').map(Number);
-        let baseVagas = Math.floor(metaNecessaria / totalJanelas);
-        let sobra = metaNecessaria % totalJanelas;
+    # Botão de Envio (Estilo Preto conforme original)
+    st.markdown("<br>", unsafe_allow_html=True)
+    btn_enviar = st.button("PUBLICAR DISPONIBILIDADE", type="primary", use_container_width=True)
 
-        for (let i = 0; i < totalJanelas; i++) {
-            let hIni = String(h).padStart(2, '0');
-            let mIni = String(m).padStart(2, '0');
-            h = (h + 1) % 24;
-            let hFim = String(h).padStart(2, '0');
-            let mFim = String(m).padStart(2, '0');
-
-            let valorSugerido = baseVagas + (i === 0 ? sobra : 0);
-
-            container.innerHTML += `
-                <div class="col-md-3">
+# ==============================================================================
+# GRADE DINÂMICA DE DISTRIBUIÇÃO DE VAGAS
+# ==============================================================================
+with col_grade:
+    st.subheader("Distribuição Inteligente de Vagas")
+    
+    if balsa_selecionada == "Selecione a Balsa Ofertada...":
+        st.info("Aguardando definição dos parâmetros do formulário...")
+        valores_janelas = []
+    else:
+        st.write(f"As vagas foram calculadas e divididas igualmente para atingir o teto operacional de **{meta_view}** da balsa **{balsa_selecionada}**.")
+        
+        # Geração dos Horários calculados das Janelas
+        base_vagas = meta_num // qtd_janelas
+        sobra_vagas = meta_num % qtd_janelas
+        
+        janelas_calculadas = []
+        hora_atual = datetime.combine(data_vigencia, hora_inicio)
+        
+        for i in range(qtd_janelas):
+            h_ini = hora_atual.strftime("%H:%M")
+            hora_atual += timedelta(hours=freq_horas)
+            h_fim = hora_atual.strftime("%H:%M")
+            
+            vagas_sugeridas = base_vagas + (sobra_vagas if i == 0 else 0)
+            janelas_calculadas.append({
+                "num": i + 1,
+                "horario": f"{h_ini} - {h_fim}",
+                "sugerido": vagas_sugeridas
+            })
+            
+        # Desenha a grade com inputs numéricos editáveis
+        valores_janelas = []
+        grid_cols = st.columns(4) # Exibe em colunas organizadas de 4 em 4
+        
+        for idx, jan in enumerate(janelas_calculadas):
+            col_target = grid_cols[idx % 4]
+            with col_target:
+                st.markdown(f"""
                     <div class="box-janela">
-                        <span class="text-muted small">Janela #${i+1}</span>
-                        <div class="fw-bold text-primary small" id="time_j_${i}">${hIni}:${mIni} às ${hFim}:${mFim}</div>
-                        <input type="number" class="form-control input-cota mt-1" id="vaga_j_${i}" value="${valorSugerido}" min="0" oninput="validarSaldo()">
+                        <span class="label-custom">Janela #{jan['num']}</span>
+                        <div style="font-weight:bold; color:#0284c7; font-size:13px; margin-bottom:5px;">{jan['horario']}</div>
                     </div>
-                </div>`;
-        }
-        validarSaldo();
-    }
-
-    function validarSaldo() {
-        let alocado = 0;
-        document.querySelectorAll('.input-cota').forEach(i => alocado += parseInt(i.value) || 0);
-        const box = document.getElementById('status_alocacao');
+                """, unsafe_allow_html=True)
+                # Input acoplado logo abaixo da caixinha horária
+                v_digitado = st.number_input(
+                    "Vagas", 
+                    min_value=0, 
+                    value=int(jan['sugerido']), 
+                    key=f"input_j_{idx}", 
+                    label_visibility="collapsed"
+                )
+                valores_janelas.append({
+                    "janela_num": jan['num'],
+                    "horario": jan['horario'],
+                    "vagas": v_digitado
+                })
+                
+        # Validação do Saldo em tempo real
+        total_alocado = sum(j['vagas'] for j in valores_janelas)
         
-        if (alocado === metaNecessaria) {
-            box.className = "status-badge bg-success text-white";
-            box.innerHTML = `✔ GRADE ALINHADA: ${alocado} de ${metaNecessaria} CTS distribuídos.`;
-        } else {
-            box.className = "status-badge bg-warning text-dark";
-            box.innerHTML = `Diferença detectada: ${alocado} de ${metaNecessaria} CTS. Ajuste os blocos.`;
-        }
-    }
+        if total_alocado == meta_num:
+            st.success(f"✔ Perfeito! Grade de vagas balanceada em exatamente {total_alocado} de {meta_num} CTS.")
+        elif total_alocado > meta_num:
+            st.error(f"❌ Excesso: Você distribuiu {total_alocado} CTS, mas o limite físico permitido é {meta_num}.")
+        else:
+            st.warning(f"⚠️ Alocando: {total_alocado} de {meta_num} CTS digitados. Distribua o restante nas janelas livres.")
 
-    function salvarOperacao(event) {
-        event.preventDefault();
-        let total = 0;
-        let janelas = [];
-        
-        document.querySelectorAll('.input-cota').forEach((i, idx) => {
-            let val = parseInt(i.value) || 0;
-            total += val;
-            janelas.push({
-                janela_num: idx + 1,
-                horario: document.getElementById(`time_j_${idx}`).innerText,
-                vagas: val
-            });
-        });
+        # Lógica de gravação ao acionar o botão
+        if btn_enviar:
+            if total_alocado != meta_num:
+                st.toast("Erro: A soma das janelas precisa fechar com a meta!", icon="🚨")
+            else:
+                # Transforma a estrutura para salvar na memória
+                nova_regra = {
+                    "balsa": balsa_selecionada,
+                    "data": data_vigencia.strftime("%d/%m/%Y"),
+                    "hora_inicio": hora_inicio.strftime("%H:%M"),
+                    "config_grade": f"{qtd_janelas} janelas de {freq_horas}h",
+                    "janelas_detalhe": [
+                        {
+                            "janela_num": j["janela_num"],
+                            "horario": j["horario"],
+                            "vagas": j["vagas"],
+                            "ocupadas": 0,
+                            "disponiveis": j["vagas"]
+                        } for j in valores_janelas
+                    ]
+                }
+                st.session_state.db_disponibilidades.append(nova_regra)
+                st.toast("Disponibilidade gravada e liberada com sucesso!", icon="✨")
+                st.rerun()
 
-        if(total !== metaNecessaria) {
-            alert("A soma das janelas deve ser igual à meta!");
-            return;
-        }
+# ==============================================================================
+# PAINEL DE OFERTAS VIGENTES NO SISTEMA
+# ==============================================================================
+st.markdown("<br><hr>", unsafe_allow_html=True)
+st.subheader("Painel de Ofertas Vigentes no Sistema")
 
-        const dadosForm = {
-            balsa: document.getElementById('balsa_id').value,
-            data: document.getElementById('data_op').value,
-            total_vagas: total,
-            janelas_detalhe: janelas
-        };
-
-        fetch('/api/salvar', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(dadosForm)
-        })
-        .then(res => res.json())
-        .then(data => {
-            atualizarTabelaConsolidada(data);
-            document.getElementById('formOferta').reset();
-            document.getElementById('grade_container').innerHTML = "";
-        });
-    }
-
-    // AQUI ESTÁ A CORREÇÃO SOLICITADA NO VÍDEO:
-    // O container.innerHTML = "" limpa a tela antiga antes de desenhar a nova lista atualizada!
-    function atualizarTabelaConsolidada(lista) {
-        const container = document.getElementById('lista_ofertas_consolidada');
-        if(!container) return;
-        
-        container.innerHTML = ""; // Limpa os dados antigos evitando a duplicação na tela!
-        
-        if(lista.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted">Nenhuma balsa ativa.</div>';
-            return;
-        }
-
-        lista.forEach((item, idx) => {
-            let linhas = "";
-            item.janelas_detalhe.forEach(j => {
-                linhas += `<tr><td>Janela #${j.janela_num}</td><td>${j.horario}</td><td><b>${j.vagas}</b></td></tr>`;
-            });
-
-            container.innerHTML += `
-                <div class="card mb-3 border-dark">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <span><b>⚓ ${item.balsa}</b> - Data: ${item.data}</span>
-                        <button class="btn btn-danger btn-sm" onclick="removerRegra(${idx})">Remover Balsa</button>
-                    </div>
-                    <table class="table table-sm m-0 table-bordered">
-                        <thead><tr><th>Identificador</th><th>Horário</th><th>Vagas</th></tr></thead>
-                        <tbody>${linhas}</tbody>
-                    </table>
-                </div>`;
-        });
-    }
-
-    function removerRegra(index) {
-        fetch(`/api/deletar/${index}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(data => atualizarTabelaConsolidada(data));
-    }
-</script>
-</body>
-</html>
-"""
-
-@app.route('/')
-def index():
-    return render_template_string(HTML_INTERFACE, lista_balsas=sorted(BALSAS_OPERACIONAIS.keys()), dicionario_balsas=BALSAS_OPERACIONAIS)
-
-@app.route('/api/salvar', methods=['POST'])
-def api_salvar():
-    DISPONIBILIDADES_DB.append(request.json)
-    return jsonify(DISPONIBILIDADES_DB)
-
-@app.route('/api/deletar/<int:index>', methods=['DELETE'])
-def api_deletar(index):
-    if 0 <= index < len(DISPONIBILIDADES_DB):
-        DISPONIBILIDADES_DB.pop(index)
-    return jsonify(DISPONIBILIDADES_DB)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+if not st.session_state.db_disponibilidades:
+    st.info("Nenhuma balsa cadastrada até o momento.")
+else:
+    # Renderiza dinamicamente cada balsa salva no estado
+    for idx, item in enumerate(st.session_state.db_disponibilidades):
+        with st.container():
+            # Cabeçalho do Card da Balsa
+            c_header1, c_header2 = st.columns([4, 1])
+            with c_header1:
+                st.markdown(f"""
+                    <h4>⚓ {item['balsa']} &nbsp;&nbsp;
+                        <span style="font-size:13px;" class="badge bg-dark">Data Vigência: {item['data']}</span>&nbsp;
+                        <span style="font-size:13px;" class="badge bg-info text-dark">1º Agendamento: {item['hora_inicio']}</span>&nbsp;
+                        <span style="font-size:13px;" class="badge bg-primary text-white">{item['config_grade']}</span>
+                    </h4>
+                """, unsafe_allow_html=True)
+            with c_header2:
+                # Botão para deletar a regra correspondente
+                if st.button("Excluir Regra", key=f"btn_del_{idx}", type="secondary"):
+                    st.session_state.db_disponibilidades.pop(idx)
+                    st.toast("Regra operacional removida.", icon="🗑️")
+                    st.rerun()
+            
+            # Tabela de Detalhes Internos
+            df_janelas = pd.DataFrame(item['janelas_detalhe'])
+            df_janelas.columns = [
+                "Identificador", "Horário de Atendimento", "Vagas Ofertadas", "Cotas Ocupadas", "Vagas Disponíveis"
+            ]
+            
+            # Formata a coluna Identificador para exibir o prefixo amigável
+            df_janelas["Identificador"] = df_janelas["Identificador"].apply(lambda x: f"Janela #{x}")
+            
+            st.dataframe(df_janelas, use_container_width=True, hide_index=True)
+            st.markdown("<br>", unsafe_allow_html=True)
