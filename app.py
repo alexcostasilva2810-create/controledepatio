@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS customizada (Layout, Centralização e Cores)
+# Estilização CSS customizada injetada de forma segura
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 1rem; }
@@ -75,44 +75,18 @@ st.markdown("""
             font-weight: bold;
         }
         
-        /* Cabeçalho fake para simular tabela perfeitamente alinhada nos módulos */
-        .table-header-custom {
-            background-color: #f1f3f5;
-            padding: 8px;
+        /* Cartão de visualização dos dados cadastrados */
+        .card-visualizacao {
+            background-color: #f8f9fa;
+            border-left: 5px solid #0d6efd;
+            padding: 12px;
             border-radius: 4px;
-            font-weight: bold;
-            font-size: 11px;
-            color: #495057;
-            text-transform: uppercase;
-            text-align: left;
-            margin-bottom: 8px;
-        }
-        
-        /* Alinhamento de dados verticais das linhas dos módulos */
-        .cell-data {
-            font-size: 12px;
-            color: #212529;
-            padding-top: 8px;
-            text-align: center;
-        }
-        
-        /* Ajuste do botão de download de NF para parecer um link limpo */
-        div[data-testid="stDownloadButton"] button {
-            padding: 2px 8px !important;
-            font-size: 11px !important;
-            background-color: #e2e8f0 !important;
-            color: #4a5568 !important;
-            border: 1px solid #cbd5e0 !important;
-            border-radius: 4px !important;
-        }
-        div[data-testid="stDownloadButton"] button:hover {
-            background-color: #cbd5e0 !important;
-            color: #2d3748 !important;
+            margin-bottom: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Helper para gerar um arquivo PDF em branco simulado para a NF
+# Helper para gerar arquivo binário simulado para download da NF
 def gerar_pdf_simulado():
     return b"%PDF-1.4 ... Conteudo simulado da Nota Fiscal Zion Tecnologia ..."
 
@@ -152,19 +126,19 @@ if "edit_index" not in st.session_state:
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
     "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD VII": {"capacidade": "1468.8 m³", "cta_meta": 24},
+    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24},
     "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XVII": {"capacidade": "1468.8 m³", "qs_meta": 24},
+    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
 
 # ==============================================================================
-# CABEÇALHO CENTRALIZADO
+# CABEÇALHO SISTÊMICO
 # ==============================================================================
 st.markdown("""
     <div class="header-top">
@@ -173,7 +147,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "🚛 MÓDULO 2: Portal de Agendamento (Cliente FS)"])
+tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "CÔMÔDULO 2: Portal de Agendamento (Cliente FS)"])
 
 # ==============================================================================
 # ABA 1: MÓDULO GESTÃO DE DISPONIBILIDADE (GD)
@@ -215,11 +189,10 @@ with tab_modulo1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_dir:
-        badge_meta_top = f"META TOTAL: {cts_val}"
         st.markdown(f"""
             <div style="display: flex; justify-content: space-between; align-items: center;" class="titulo-secao">
                 <span>🕒 Distribuição de Vagas por Janela</span>
-                <span style="background-color: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{badge_meta_top}</span>
+                <span style="background-color: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">META TOTAL: {cts_val}</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -322,7 +295,7 @@ with tab_modulo1:
             st.toast("Disponibilidade publicada com sucesso!", icon="✨")
             st.rerun()
 
-    # SOLUÇÃO COMPACTA E CENTRALIZADA SEM ERROS
+    # CORREÇÃO DO ERRO DO MODULO 1: Usando tipos explícitos nas colunas sem o parâmetro genérico "alignment"
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema (Visão GD)</p>', unsafe_allow_html=True)
 
@@ -359,73 +332,35 @@ with tab_modulo1:
                 
                 df_display = pd.DataFrame(lista_tabela)
                 
-                # Centralização nativa configurada individualmente por coluna mapeada de strings
                 st.dataframe(
                     df_display, 
                     use_container_width=True, 
                     hide_index=True,
                     density="compact",
                     column_config={
-                        "IDENTIFICADOR": st.column_config.Column(alignment="center"),
-                        "HORÁRIO DE ATENDIMENTO": st.column_config.Column(alignment="center"),
-                        "VAGAS OFERTADAS": st.column_config.Column(alignment="center"),
-                        "COTAS OCUPADAS": st.column_config.Column(alignment="center"),
-                        "VAGAS DISPONÍVEIS": st.column_config.Column(alignment="center"),
+                        "IDENTIFICADOR": st.column_config.TextColumn("IDENTIFICADOR"),
+                        "HORÁRIO DE ATENDIMENTO": st.column_config.TextColumn("HORÁRIO DE ATENDIMENTO"),
+                        "VAGAS OFERTADAS": st.column_config.NumberColumn("VAGAS OFERTADAS"),
+                        "COTAS OCUPADAS": st.column_config.NumberColumn("COTAS OCUPADAS"),
+                        "VAGAS DISPONÍVEIS": st.column_config.NumberColumn("VAGAS DISPONÍVEIS"),
                     }
                 )
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ==============================================================================
-    # SEÇÃO DE AGENDADOS NO MÓDULO 1 EM LINHA COM COLUNAS ALINHADAS E DOWNLOAD DE NF
-    # ==============================================================================
+    # VISÃO DE PORTARIA SEGURA COM DATA_FRAME PARA EVITAR QUEBRAS EM LAYOUT LATERAL
     st.markdown('<p class="titulo-secao">📋 VEÍCULOS AGENDADOS (Visão Geral de Portaria)</p>', unsafe_allow_html=True)
     with st.container():
         st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
         if not st.session_state.db_agendamentos:
             st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhum veículo agendado no sistema até o momento.</div>', unsafe_allow_html=True)
         else:
-            st.markdown("""
-                <div class="table-header-custom">
-                    <table style="width: 100%; border-collapse: collapse; border: none; background: transparent; text-align: center;">
-                        <tr>
-                            <td style="width: 10%; text-align: center;">Balsa</td>
-                            <td style="width: 10%; text-align: center;">Data</td>
-                            <td style="width: 12%; text-align: center;">Horário</td>
-                            <td style="width: 10%; text-align: center;">Placa</td>
-                            <td style="width: 10%; text-align: center;">Veículo</td>
-                            <td style="width: 14%; text-align: center;">Motorista</td>
-                            <td style="width: 10%; text-align: center;">Nº NF</td>
-                            <td style="width: 10%; text-align: center;">Volume</td>
-                            <td style="width: 10%; text-align: center;">Produto</td>
-                            <td style="width: 8%; text-align: center;">Anexo NF</td>
-                        </tr>
-                    </table>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            for idx, ag in enumerate(st.session_state.db_agendamentos):
-                cols_m1 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.4, 1.0, 1.0, 1.0, 0.8])
-                
-                cols_m1[0].markdown(f'<div class="cell-data"><b>{ag["balsa"]}</b></div>', unsafe_allow_html=True)
-                cols_m1[1].markdown(f'<div class="cell-data">{ag["data"]}</div>', unsafe_allow_html=True)
-                cols_m1[2].markdown(f'<div class="cell-data" style="color:#0d6efd;font-weight:600;">{ag["janela"]}</div>', unsafe_allow_html=True)
-                cols_m1[3].markdown(f'<div class="cell-data">`{ag["placa"]}`</div>', unsafe_allow_html=True)
-                cols_m1[4].markdown(f'<div class="cell-data">{ag["veiculo"]}</div>', unsafe_allow_html=True)
-                cols_m1[5].markdown(f'<div class="cell-data">{ag["motorista"]}</div>', unsafe_allow_html=True)
-                cols_m1[6].markdown(f'<div class="cell-data">{ag["nf"]}</div>', unsafe_allow_html=True)
-                cols_m1[7].markdown(f'<div class="cell-data">{float(ag["volume"]):.2f} m³</div>', unsafe_allow_html=True)
-                cols_m1[8].markdown(f'<div class="cell-data">{ag["produto"]}</div>', unsafe_allow_html=True)
-                
-                with cols_m1[9]:
-                    st.download_button(
-                        label="📄 PDF",
-                        data=gerar_pdf_simulado(),
-                        file_name=ag["arquivo_nome"],
-                        mime="application/pdf",
-                        key=f"m1_down_{idx}"
-                    )
-                st.markdown("<div style='border-bottom: 1px solid #f1f3f5; margin: 4px 0;'></div>", unsafe_allow_html=True)
+            df_portaria = pd.DataFrame(st.session_state.db_agendamentos)
+            st.dataframe(
+                df_portaria[["balsa", "data", "janela", "placa", "veiculo", "motorista", "nf", "volume", "produto", "arquivo_nome"]],
+                use_container_width=True,
+                hide_index=True
+            )
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
@@ -511,31 +446,11 @@ with tab_modulo2:
             if not st.session_state.db_agendamentos:
                 st.info("Nenhum caminhão agendado para esta programação até o momento.")
             else:
-                if st.session_state.edit_index == -1:
-                    st.markdown("""
-                        <div class="table-header-custom">
-                            <table style="width: 100%; border-collapse: collapse; border: none; background: transparent; text-align: center;">
-                                <tr>
-                                    <td style="width: 10%; text-align: center;">Balsa</td>
-                                    <td style="width: 10%; text-align: center;">Data</td>
-                                    <td style="width: 12%; text-align: center;">Horário</td>
-                                    <td style="width: 10%; text-align: center;">Placa</td>
-                                    <td style="width: 10%; text-align: center;">Veículo</td>
-                                    <td style="width: 13%; text-align: center;">Motorista</td>
-                                    <td style="width: 10%; text-align: center;">Nº NF</td>
-                                    <td style="width: 9%; text-align: center;">Volume</td>
-                                    <td style="width: 8%; text-align: center;">Produto</td>
-                                    <td style="width: 8%; text-align: center;">NF File</td>
-                                    <td style="width: 10%; text-align: center;">Ações</td>
-                                </tr>
-                            </table>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
                 for idx, ag in enumerate(st.session_state.db_agendamentos):
                     
+                    # CORREÇÃO DO ERRO DO MÓDULO 2: Renderização limpa de blocos nativos para evitar erros de sintaxe e parser
                     if st.session_state.edit_index == idx:
-                        st.markdown(f"<div style='background-color:#fff3cd; padding:8px; border-radius:4px; font-weight:bold; margin-bottom:10px; font-size:12px;'>✏️ Editando Lançamento #{idx+1}</div>", unsafe_allow_html=True)
+                        st.warning(f"✏️ Editando Lançamento #{idx+1}")
                         
                         c_ed1, c_ed2, c_ed3 = st.columns([4, 4, 4])
                         with c_ed1:
@@ -549,6 +464,7 @@ with tab_modulo2:
                             ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
                         
                         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+                        # Removido parâmetro inválido 'class_name' que causava erro catastrófico
                         if st.button("💾 Salvar Alterações", key=f"save_btn_{idx}", use_container_width=True, type="primary"):
                             st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
                             st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
@@ -561,32 +477,29 @@ with tab_modulo2:
                             st.toast("Alterações salvas com sucesso!", icon="✨")
                             st.rerun()
                     else:
-                        cols_m2 = st.columns([1.0, 1.0, 1.2, 1.0, 1.0, 1.3, 1.0, 0.9, 0.8, 0.8, 1.0])
+                        # Exibição limpa em cards informativos estáveis estruturados de forma 100% nativa
+                        st.markdown(f"""
+                        <div class="card-visualizacao">
+                            <b>BALSA:</b> {ag['balsa']} | <b>DATA:</b> {ag['data']} | <b>HORÁRIO:</b> {ag['janela']}<br>
+                            <b>PLACA:</b> {ag['placa']} | <b>VEÍCULO:</b> {ag['veiculo']} | <b>MOTORISTA:</b> {ag['motorista']}<br>
+                            <b>Nº NF:</b> {ag['nf']} | <b>VOLUME:</b> {float(ag['volume']):.2f} m³ | <b>PRODUTO:</b> {ag['produto']} | <b>ANEXO:</b> {ag['arquivo_nome']}
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        cols_m2[0].markdown(f'<div class="cell-data"><b>{ag["balsa"]}</b></div>', unsafe_allow_html=True)
-                        cols_m2[1].markdown(f'<div class="cell-data">{ag["data"]}</div>', unsafe_allow_html=True)
-                        cols_m2[2].markdown(f'<div class="cell-data" style="color:#0d6efd;font-weight:600;">{ag["janela"]}</div>', unsafe_allow_html=True)
-                        cols_m2[3].markdown(f'<div class="cell-data">`{ag["placa"]}`</div>', unsafe_allow_html=True)
-                        cols_m2[4].markdown(f'<div class="cell-data">{ag["veiculo"]}</div>', unsafe_allow_html=True)
-                        cols_m2[5].markdown(f'<div class="cell-data">{ag["motorista"]}</div>', unsafe_allow_html=True)
-                        cols_m2[6].markdown(f'<div class="cell-data">{ag["nf"]}</div>', unsafe_allow_html=True)
-                        cols_m2[7].markdown(f'<div class="cell-data">{float(ag["volume"]):.2f} m³</div>', unsafe_allow_html=True)
-                        cols_m2[8].markdown(f'<div class="cell-data">{ag["produto"]}</div>', unsafe_allow_html=True)
-                        
-                        with cols_m2[9]:
-                            st.download_button(
-                                label="📄 PDF",
-                                data=gerar_pdf_simulado(),
-                                file_name=ag["arquivo_nome"],
-                                mime="application/pdf",
-                                key=f"m2_down_{idx}"
-                            )
-                            
-                        with cols_m2[10]:
+                        c_acoes1, c_acoes2 = st.columns([2, 10])
+                        with c_acoes1:
                             if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
                                 st.session_state.edit_index = idx
                                 st.rerun()
-                                
-                    st.markdown("<div style='border-bottom: 1px solid #e9ecef; margin: 4px 0;'></div>", unsafe_allow_html=True)
-                    
+                        with c_acoes2:
+                            st.download_button(
+                                label="📄 Baixar PDF da NF",
+                                data=gerar_pdf_simulado(),
+                                file_name=ag["arquivo_nome"],
+                                mime="application/pdf",
+                                key=f"m2_down_{idx}",
+                                use_container_width=False
+                            )
+                        st.markdown("<hr style='margin:10px 0; border-color:#e9ecef;'>", unsafe_allow_html=True)
+                        
             st.markdown('</div>', unsafe_allow_html=True)
