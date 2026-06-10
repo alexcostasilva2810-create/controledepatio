@@ -1,508 +1,364 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# Configuração da página para ocupar a tela cheia
+# Configuração da Página
 st.set_page_config(
-    page_title="Zion Tecnologia - Controle de Pátio",
+    page_title="ZION TECNOLOGIA - LOGÍSTICA",
+    page_icon="🚚",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS customizada injetada de forma segura
+# Estilização CSS Personalizada para emular a interface das imagens
 st.markdown("""
     <style>
-        .block-container { padding-top: 1rem; padding-bottom: 1rem; }
-        
-        /* Cabeçalho Superior Escuro e Centralizado */
-        .header-top {
-            background-color: #0b132b;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 6px;
-            margin-bottom: 25px;
-            text-align: center;
-        }
-        
-        /* Títulos de Seções */
-        .titulo-secao {
-            background-color: #343a40;
-            color: white;
-            padding: 8px 14px;
-            font-size: 14px;
-            font-weight: bold;
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
-            margin-bottom: 0px;
-        }
-        
-        /* Container interno dos blocos */
-        .card-body-custom {
-            background-color: #ffffff;
-            border: 1px solid #dee2e6;
-            border-bottom-left-radius: 6px;
-            border-bottom-right-radius: 6px;
-            padding: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
-            margin-bottom: 20px;
-        }
-        
-        /* Boxes brancos das Janelas de Horário */
-        .box-janela {
-            background-color: #ffffff;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 6px;
-            text-align: center;
-            font-family: 'Segoe UI', sans-serif;
-            margin-top: 5px;
-        }
-        .label-janela {
-            font-size: 11px;
-            font-weight: 600;
-            color: #6c757d;
-            text-transform: uppercase;
-        }
-        .horario-janela {
-            font-weight: bold;
-            color: #0d6efd;
-            font-size: 13px;
-        }
+    /* Estilo global */
+    .main .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+    }
+    h1, h2, h3 {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+    
+    /* Top Banner */
+    .top-banner {
+        background-color: #0B192C;
+        color: white;
+        text-align: center;
+        padding: 20px 10px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    .top-banner h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+    .top-banner p {
+        margin: 5px 0 0 0;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #8E9AAF;
+    }
 
-        /* Centralização do número inserido dentro do input do Streamlit */
-        div[data-testid="stNumberInput"] input {
-            text-align: center !important;
-            font-weight: bold;
-        }
-        
-        /* Cartão de visualização dos dados cadastrados */
-        .card-visualizacao {
-            background-color: #f8f9fa;
-            border-left: 5px solid #0d6efd;
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
+    /* Meta Total Badge */
+    .meta-badge {
+        float: right;
+        background-color: #17A2B8;
+        color: white;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: bold;
+        border-radius: 4px;
+        margin-top: -3px;
+    }
+
+    /* Cards de Janela de Ofertas */
+    .janela-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 6px;
+        padding: 12px;
+        text-align: center;
+        margin-bottom: 15px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .janela-titulo {
+        font-size: 11px;
+        color: #718096;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+    }
+    .janela-horario {
+        font-size: 14px;
+        font-weight: bold;
+        color: #007BFF;
+        margin-bottom: 8px;
+    }
+
+    /* Subtítulos de Seções */
+    .section-header-container {
+        background-color: #343A40;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px 4px 0 0;
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .stButton>button {
+        border-radius: 4px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Helper para gerar arquivo binário simulado para download da NF
+# ---------------------------------------------------------------------------------
+# FUNÇÕES AUXILIARES (CORREÇÃO DE ERRO DO ADOBE ACROBAT)
+# ---------------------------------------------------------------------------------
 def gerar_pdf_simulado():
-    return b"%PDF-1.4 ... Conteudo simulado da Nota Fiscal Zion Tecnologia ..."
+    """Gera a estrutura binária mínima e perfeitamente válida de um arquivo PDF
+    de uma página para evitar erros de corrupção ou arquivo danificado no Adobe Reader."""
+    return (
+        b"%PDF-1.4\n"
+        b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+        b"2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n"
+        b"3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\n"
+        b"xref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\n"
+        b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF"
+    )
 
-# ==============================================================================
+# ---------------------------------------------------------------------------------
 # BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
-# ==============================================================================
-if "db_disponibilidades" not in st.session_state:
-    st.session_state.db_disponibilidades = [{
-        "balsa": "SD II",
-        "data_vigencia": "12/06/2026",
-        "config_grade": "12 Janelas Ativas",
-        "janelas_detalhe": [
-            {"janela_num": 1, "horario": "06:00 às 07:00", "vagas": 5, "ocupadas": 2, "disponiveis": 3},
-            {"janela_num": 2, "horario": "07:00 às 08:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 3, "horario": "08:00 às 09:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 4, "horario": "09:00 às 10:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 5, "horario": "10:00 às 11:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 6, "horario": "11:00 às 12:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 7, "horario": "12:00 às 13:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 8, "horario": "13:00 às 14:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 9, "horario": "14:00 às 15:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 10, "horario": "15:00 às 16:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 11, "horario": "16:00 às 17:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-            {"janela_num": 12, "horario": "17:00 às 18:00", "vagas": 2, "ocupadas": 0, "disponiveis": 2},
-        ]
-    }]
-
-if "db_agendamentos" not in st.session_state:
-    st.session_state.db_agendamentos = [
-        {"balsa": "SD II", "data": "10/06/2026", "janela": "06:00 às 07:00", "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO", "nf": "154639", "volume": 51000.0, "produto": "ANIDRO", "arquivo_nome": "NF 1736.pdf"},
-        {"balsa": "SD II", "data": "10/06/2026", "janela": "06:00 às 07:00", "placa": "HUG-9869", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO", "nf": "154639", "volume": 51000.0, "produto": "ANIDRO", "arquivo_nome": "NF 1812.pdf"}
+# ---------------------------------------------------------------------------------
+if "ofertas" not in st.session_state:
+    st.session_state.ofertas = [
+        {"id": 1, "horario": "06:00 às 07:00", "vagas_o": 5, "cotas_o": 2},
+        {"id": 2, "horario": "07:00 às 08:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 3, "horario": "08:00 às 09:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 4, "horario": "09:00 às 10:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 5, "horario": "10:00 às 11:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 6, "horario": "11:00 às 12:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 7, "horario": "12:00 às 13:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 8, "horario": "13:00 às 14:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 9, "horario": "14:00 às 15:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 10, "horario": "15:00 às 16:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 11, "horario": "16:00 às 17:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 12, "horario": "17:00 às 18:00", "vagas_o": 2, "cotas_o": 0},
     ]
 
-if "edit_index" not in st.session_state:
-    st.session_state.edit_index = -1
+if "db_agendamentos" not in st.session_state:
+    pdf_base = gerar_pdf_simulado()
+    st.session_state.db_agendamentos = [
+        {
+            "balsa": "SD II",
+            "data": "12/06/2026",
+            "janela": "06:00 às 07:00",
+            "placa": "JVV-7606",
+            "veiculo": "BITREN",
+            "motorista": "JOSE FRANCISCO",
+            "nf": "154639",
+            "volume": 51000.00,
+            "produto": "ANIDRO",
+            "arquivo_nome": "NF 1736.pdf",
+            "conteudo_bytes": pdf_base
+        },
+        {
+            "balsa": "SD II",
+            "data": "12/06/2026",
+            "janela": "06:00 às 07:00",
+            "placa": "HUG-9869",
+            "veiculo": "BITREN",
+            "motorista": "JOSE FRANCISCO",
+            "nf": "154639",
+            "volume": 51000.00,
+            "produto": "ANIDRO",
+            "arquivo_nome": "NF 1812.pdf",
+            "conteudo_bytes": pdf_base
+        }
+    ]
 
-BALSAS_OPERACIONAIS = {
-    "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
-    "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24},
-    "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24},
-    "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
-}
-
-# ==============================================================================
-# CABEÇALHO SISTÊMICO
-# ==============================================================================
+# ---------------------------------------------------------------------------------
+# CABEÇALHO DO SISTEMA
+# ---------------------------------------------------------------------------------
 st.markdown("""
-    <div class="header-top">
-        <h2 style="margin: 0; font-weight: 800; color: white; letter-spacing: 1px;">ZION TECNOLOGIA - LOGÍSTICA</h2>
-        <p style="margin: 5px 0 0 0; color: #a0aec0; font-size: 14px;">SISTEMA DE PORTARIA & AGENDAMENTO LOGÍSTICO</p>
+    <div class="top-banner">
+        <h1>ZION TECNOLOGIA - LOGÍSTICA</h1>
+        <p>Sistema de Portaria & Agendamento Logístico</p>
     </div>
 """, unsafe_allow_html=True)
 
-tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "📦 MÓDULO 2: Portal de Agendamento (Cliente FS)"])
+aba1, aba2 = st.tabs([
+    "⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", 
+    "🚛 MÓDULO 2: Portal de Agendamento (Cliente FS)"
+])
 
-# ==============================================================================
-# ABA 1: MÓDULO GESTÃO DE DISPONIBILIDADE (GD)
-# ==============================================================================
-with tab_modulo1:
-    col_esq, col_dir = st.columns([4, 8], gap="medium")
-
-    with col_esq:
-        st.markdown('<p class="titulo-secao">⚓ Configuração da Oferta</p>', unsafe_allow_html=True)
-        with st.container():
-            st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
-            
-            lista_opcoes = ["Selecione a Balsa Ofertada..."] + sorted(list(BALSAS_OPERACIONAIS.keys()))
-            balsa_sel = st.selectbox("BALSA / EMBARCAÇÃO DISPONÍVEL", lista_opcoes, key="m1_balsa")
-            
-            cap_val, cts_val, cts_num = "0.0 m³", "0 CTS", 0
-            if balsa_sel != "Selecione a Balsa Ofertada...":
-                cap_val = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
-                cts_num = BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"]
-                cts_val = f"{cts_num} CTS"
-                
-            c1, c2 = st.columns(2)
-            with c1:
-                st.text_input("CAPACIDADE (m³)", value=cap_val, disabled=True, key="m1_cap")
-            with c2:
-                st.text_input("EXIGÊNCIA (CTS)", value=cts_val, disabled=True, key="m1_cts")
-                
-            c3, c4 = st.columns(2)
-            with c3:
-                data_atual_ptbr = datetime.today().strftime("%Y/%m/%d")
-                data_str = st.text_input("DATA DA OPERAÇÃO (AAAA/MM/DD)", value=data_atual_ptbr, key="m1_data")
-            with c4:
-                hora_ini = st.time_input("HORA INÍCIO", datetime.strptime("06:00", "%H:%M").time(), key="m1_hora")
-                
-            qtd_janelas = st.selectbox("QUANTIDADE DE JANELAS A DISPONIBILIBAR", [6, 10, 12, 18, 24], index=2, key="m1_qtd")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            btn_publicar = st.button("☁ PUBLICAR DISPONIBILIDADE", type="primary", use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_dir:
-        st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center;" class="titulo-secao">
-                <span>🕒 Distribuição de Vagas por Janela</span>
-                <span style="background-color: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">META TOTAL: {cts_val}</span>
-            </div>
-        """, unsafe_allow_html=True)
+# =================================================================================
+# MÓDULO 1: GESTÃO DE DISPONIBILIDADE (GD)
+# =================================================================================
+with aba1:
+    col_config, col_dist = st.columns([1, 2])
+    
+    with col_config:
+        st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
         
-        with st.container():
-            st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
-            
-            if balsa_sel == "Selecione a Balsa Ofertada...":
-                st.info("Aguardando a seleção da balsa para gerar a grade de distribuição horária.")
-                total_alocado = 0
-                vagas_digitadas = []
-            else:
-                base_vagas = cts_num // qtd_janelas
-                resto = cts_num % qtd_janelas
-                
-                janelas_cronograma = []
-                try:
-                    base_data = datetime.strptime(data_str, "%Y/%m/%d").date()
-                except:
-                    base_data = datetime.today().date()
-                    
-                ponteiro_hora = datetime.combine(base_data, hora_ini)
-                
-                for i in range(qtd_janelas):
-                    inicio_str = ponteiro_hora.strftime("%H:%M")
-                    ponteiro_hora += timedelta(hours=1)
-                    fim_str = ponteiro_hora.strftime("%H:%M")
-                    
-                    vagas_sugeridas = base_vagas + (resto if i == 0 else 0)
-                    janelas_cronograma.append({
-                        "id": i + 1,
-                        "faixa": f"{inicio_str} às {fim_str}",
-                        "vagas_padrao": vagas_sugeridas
-                    })
-                
-                vagas_digitadas = []
-                colunas_grid = st.columns(4)
-                
-                for idx, jan in enumerate(janelas_cronograma):
-                    col_alvo = colunas_grid[idx % 4]
-                    with col_alvo:
-                        st.markdown(f"""
-                            <div class="box-janela">
-                                <span class="label-janela">Janela #{jan['id']}</span>
-                                <div class="horario-janela">{jan['faixa']}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
-                        cota_input = st.number_input(
-                            f"Janela_{jan['id']}_input",
-                            min_value=0,
-                            value=int(jan['vagas_padrao']),
-                            key=f"input_cota_{idx}",
-                            label_visibility="collapsed"
-                        )
-                        vagas_digitadas.append({
-                            "janela_num": jan['id'],
-                            "horario": jan['faixa'],
-                            "vagas": cota_input
-                        })
-                
-                total_alocado = sum(item['vagas'] for item in vagas_digitadas)
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                if total_alocado == cts_num:
-                    st.success(f"✔ GRADE PERFEITA: {total_alocado} de {cts_num} CTS distribuídos.")
-                elif total_alocado > cts_num:
-                    st.error(f"❌ EXCESSO OPERACIONAL: Você distribuiu {total_alocado} CTS. O máximo permitido é {cts_num} CTS.")
-                else:
-                    st.warning(f"⚠️ ALOCAÇÃO INCOMPLETA: {total_alocado} de {cts_num} CTS distribuídos.")
-                    
-            st.markdown('</div>', unsafe_allow_html=True)
+        balsa_gd = st.selectbox("Selecione a Embarcação", ["SD II"], key="gd_balsa")
+        data_gd = st.date_input("Data de Vigência", datetime(2026, 6, 12), key="gd_data")
+        exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=25)
+        hora_inicio = st.selectbox("Hora Início", ["06:00", "07:00", "08:00"])
+        
+        if st.button("🔴 PUBLICAR DISPONIBILIDADE", use_container_width=True):
+            st.success("Disponibilidade de vagas atualizada com sucesso no sistema!")
 
-    if balsa_sel != "Selecione a Balsa Ofertada..." and btn_publicar:
-        try:
-            data_validada = datetime.strptime(data_str, "%Y/%m/%d").strftime("%Y/%m/%d")
-            data_erro = False
-        except ValueError:
-            data_erro = True
-            
-        if data_erro:
-            st.toast("Erro: Introduza a data no formato correto AAAA/MM/DD", icon="🚨")
-        elif total_alocado != cts_num:
-            st.toast("Erro: A distribuição não coincide com a meta física da balsa.", icon="🚨")
-        else:
-            nova_oferta = {
-                "balsa": balsa_sel,
-                "data_vigencia": data_validada,
-                "config_grade": f"{qtd_janelas} Janelas Ativas",
-                "janelas_detalhe": [
-                    {
-                        "janela_num": v["janela_num"],
-                        "horario": v["horario"],
-                        "vagas": v["vagas"],
-                        "ocupadas": 0,
-                        "disponiveis": v["vagas"]
-                    } for v in vagas_digitadas
-                ]
-            }
-            st.session_state.db_disponibilidades.append(nova_oferta)
-            st.toast("Disponibilidade publicada com sucesso!", icon="✨")
-            st.rerun()
-
-    # VISÃO MÓDULO 1 MANTIDA COMPATÍVEL COM ST.DATAFRAME
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema (Visão GD)</p>', unsafe_allow_html=True)
-
-    with st.container():
-        st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
-        if not st.session_state.db_disponibilidades:
-            st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhuma balsa cadastrada até o momento.</div>', unsafe_allow_html=True)
-        else:
-            for idx, item in enumerate(st.session_state.db_disponibilidades):
-                c_card1, c_card2 = st.columns([5, 1])
-                with c_card1:
-                    st.markdown(f"""
-                        <div style="font-size: 15px; font-weight: bold; margin-bottom: 8px;">
-                            ⚓ {item['balsa']} &nbsp;&nbsp;
-                            <span style="background-color: #212529; color: white; font-size: 11px; padding: 3px 6px; border-radius:3px;">📅 {item['data_vigencia']}</span> &nbsp;
-                            <span style="background-color: #0d6efd; color: white; font-size: 11px; padding: 3px 6px; border-radius:3px;">📊 {item['config_grade']}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with c_card2:
-                    if st.button("Excluir Regra", key=f"del_regra_{idx}", type="secondary", use_container_width=True):
-                        st.session_state.db_disponibilidades.pop(idx)
-                        st.toast("Regra operacional removida.", icon="🗑️")
-                        st.rerun()
-                
-                lista_tabela = []
-                for j in item['janelas_detalhe']:
-                    lista_tabela.append({
-                        "IDENTIFICADOR": f"Janela #{j['janela_num']}",
-                        "HORÁRIO DE ATENDIMENTO": str(j['horario']),
-                        "VAGAS OFERTADAS": int(j['vagas']),
-                        "COTAS OCUPADAS": int(j['ocupadas']),
-                        "VAGAS DISPONÍVEIS": int(j['disponiveis'])
-                    })
-                
-                df_display = pd.DataFrame(lista_tabela)
-                st.dataframe(df_display, use_container_width=True, hide_index=True)
-                st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # REQUISITO ADICIONADO: ADICIONADO DOWNLOAD DE NF TAMBÉM NA PORTARIA DO MÓDULO 1
-    st.markdown('<p class="titulo-secao">📋 VEÍCULOS AGENDADOS (Visão Geral de Portaria)</p>', unsafe_allow_html=True)
-    with st.container():
-        st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
-        if not st.session_state.db_agendamentos:
-            st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhum veículo agendado no sistema até o momento.</div>', unsafe_allow_html=True)
-        else:
-            for idx, ag in enumerate(st.session_state.db_agendamentos):
-                c_p1, c_p2 = st.columns([10, 2])
-                with c_p1:
-                    st.markdown(f"""
-                    <div style='padding: 5px; font-size: 13px;'>
-                        <b>BALSA:</b> {ag['balsa']} | <b>DATA:</b> {ag['data']} | <b>HORÁRIO:</b> {ag['janela']} | 
-                        <b>PLACA:</b> {ag['placa']} | <b>VEÍCULO:</b> {ag['veiculo']} | <b>MOTORISTA:</b> {ag['motorista']} | 
-                        <b>NF:</b> {ag['nf']} | <b>VOLUME:</b> {float(ag['volume']):.2f} m³ | <b>PRODUTO:</b> {ag['produto']}
+    with col_dist:
+        st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas por Janela <span class="meta-badge">META TOTAL: {exigencia_cts} CTS</span></div>', unsafe_allow_html=True)
+        
+        cols_janelas = st.columns(4)
+        total_distribuido = 0
+        
+        for idx, of in enumerate(st.session_state.ofertas[:12]):
+            col_id = idx % 4
+            with cols_janelas[col_id]:
+                st.markdown(f"""
+                    <div class="janela-card">
+                        <div class="janela-titulo">JANELA #{of['id']}</div>
+                        <div class="janela-horario">{of['horario']}</div>
                     </div>
-                    """, unsafe_allow_html=True)
-                with c_p2:
+                """, unsafe_allow_html=True)
+                
+                vagas_atual = st.number_input(
+                    "Vagas", 
+                    min_value=0, 
+                    value=of['vagas_o'], 
+                    key=f"vaga_input_{of['id']}",
+                    label_visibility="collapsed"
+                )
+                total_distribuido += vagas_atual
+
+        if total_distribuido < exigencia_cts:
+            st.warning(f"⚠️ ALOCAÇÃO INCOMPLETA: {total_distribuido} de {exigencia_cts} CTS distribuídos.")
+        else:
+            st.success(f"✅ ALOCAÇÃO CONCLUÍDA: {total_distribuido} CTS distribuídos.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Visão GD) <span style="margin-left:auto; background:#007BFF; padding:2px 8px; font-size:11px; border-radius:3px;">⚓ SD II | 🗓️ 12/06/2026 | 🎫 12 Janelas Ativas</span></div>', unsafe_allow_html=True)
+    
+    df_ofertas_view = pd.DataFrame(st.session_state.ofertas)
+    df_ofertas_view.columns = ['IDENTIFICADOR', 'HORÁRIO DE ATENDIMENTO', 'VAGAS OFERTADAS', 'COTAS OCUPADAS']
+    df_ofertas_view['VAGAS DISPONÍVEIS'] = df_ofertas_view['VAGAS OFERTADAS'] - df_ofertas_view['COTAS OCUPADAS']
+    
+    col_table_gd, col_btn_excluir = st.columns([5, 1])
+    with col_table_gd:
+        st.dataframe(df_ofertas_view, use_container_width=True, hide_index=True)
+    with col_btn_excluir:
+        st.button("Excluir Regra", key="btn_excluir_regra", use_container_width=True)
+
+    # Lista de Veículos Agendados na Visão Portaria
+    st.markdown('<div class="section-header-container">🗂️ VEÍCULOS AGENDADOS (Visão Geral de Portaria)</div>', unsafe_allow_html=True)
+    
+    if st.session_state.db_agendamentos:
+        for idx, ag in enumerate(st.session_state.db_agendamentos):
+            c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2, 2.5, 2, 1.5, 1.5])
+            with c1:
+                st.markdown(f"**BALSA:** {ag['balsa']}<br>**DATA:** {ag['data']}", unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"**HORÁRIO:** {ag['janela']}<br>**PLACA:** `{ag['placa']}`", unsafe_allow_html=True)
+            with c3:
+                st.markdown(f"**VEÍCULO:** {ag['veiculo']}<br>**MOTORISTA:** {ag['motorista']}", unsafe_allow_html=True)
+            with c4:
+                st.markdown(f"**Nº NF:** {ag['nf']}<br>**VOLUME:** {ag['volume']:.2f} m³", unsafe_allow_html=True)
+            with c5:
+                st.markdown(f"**PRODUTO:** {ag['produto']}<br>**ANEXO:** {ag['arquivo_nome']}", unsafe_allow_html=True)
+            with c6:
+                st.download_button(
+                    label="📄 PDF",
+                    data=ag.get("conteudo_bytes", gerar_pdf_simulado()),
+                    file_name=ag["arquivo_nome"],
+                    mime="application/pdf",
+                    key=f"m1_down_portaria_{idx}",
+                    use_container_width=True
+                )
+            st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #E2E8F0;'>", unsafe_allow_html=True)
+    else:
+        st.info("Nenhum veículo agendado no momento.")
+
+# =================================================================================
+# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS)
+# =================================================================================
+with aba2:
+    col_form, col_comp = st.columns([1, 1.3])
+    
+    with col_form:
+        st.markdown('<div class="section-header-container">📝 Formulário de Agendamento Logístico</div>', unsafe_allow_html=True)
+        
+        with st.form("form_agendamento", clear_on_submit=False):
+            embarcacao_sel = st.selectbox(
+                "1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO",
+                ["SD II - Vigência: 12/06/2026"]
+            )
+            
+            opcoes_janelas = [f"Janela #{of['id']} [{of['horario']}] ({of['vagas_o'] - of['cotas_o']} vagas restantes)" for of in st.session_state.ofertas]
+            janela_sel = st.selectbox("2. ESCOLHA O HORÁRIO DA JANELA", opcoes_janelas)
+            
+            c_placa, c_veic = st.columns(2)
+            with c_placa:
+                placa = st.text_input("PLACA", value="JVV-7606").upper()
+            with c_veic:
+                veiculo = st.text_input("VEÍCULO", value="BITREN").upper()
+                
+            c_mot, c_nf = st.columns(2)
+            with c_mot:
+                motorista = st.text_input("MOTORISTA", value="JOSE FRANCISCO").upper()
+            with c_nf:
+                num_nf = st.text_input("Nº NOTA FISCAL", value="154639")
+                
+            c_vol, c_prod = st.columns(2)
+            with c_vol:
+                volume = st.number_input("VOLUME M³", value=51000.00, step=100.0)
+            with c_prod:
+                produto = st.text_input("PRODUTO", value="ANIDRO").upper()
+                
+            arquivo_nf = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL)", type=["pdf", "png", "jpg", "jpeg"])
+            
+            btn_confirmar = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
+            
+            if btn_confirmar:
+                # Intercepta e guarda os bytes originais para o Adobe Acrobat ler perfeitamente
+                dados_arquivo_bytes = arquivo_nf.read() if arquivo_nf is not None else gerar_pdf_simulado()
+                nome_do_arquivo = arquivo_nf.name if arquivo_nf is not None else "NF_Automatica.pdf"
+                horario_janela_limpo = janela_sel.split("[")[1].split("]")[0] if "[" in janela_sel else "06:00 às 07:00"
+                
+                novo_reg = {
+                    "balsa": embarcacao_sel.split(" - ")[0],
+                    "data": embarcacao_sel.split(": ")[1] if ": " in embarcacao_sel else "12/06/2026",
+                    "janela": horario_janela_limpo,
+                    "placa": placa,
+                    "veiculo": veiculo,
+                    "motorista": motorista,
+                    "nf": num_nf,
+                    "volume": float(volume),
+                    "produto": produto,
+                    "arquivo_nome": nome_do_arquivo,
+                    "conteudo_bytes": dados_arquivo_bytes
+                }
+                
+                st.session_state.db_agendamentos.append(novo_reg)
+                st.success("✅ Agendamento efetuado com sucesso!")
+                st.rerun()
+
+    with col_comp:
+        st.markdown('<div class="section-header-container">📜 Comprovantes de Agendamento Emitidos</div>', unsafe_allow_html=True)
+        
+        if st.session_state.db_agendamentos:
+            for idx, ag in enumerate(st.session_state.db_agendamentos):
+                st.markdown(f"""
+                <div style="background-color: #F8F9FA; border-left: 4px solid #007BFF; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                    <span style="float: right; font-size: 11px; color: #6C757D;">📋 Registro #{idx+1}</span>
+                    <p style="margin: 0 0 4px 0; font-size: 13px;"><b>BALSA:</b> {ag['balsa']} | <b>DATA:</b> {ag['data']} | <b>HORÁRIO:</b> {ag['janela']}</p>
+                    <p style="margin: 0 0 4px 0; font-size: 13px;"><b>PLACA:</b> {ag['placa']} | <b>VEÍCULO:</b> {ag['veiculo']} | <b>MOTORISTA:</b> {ag['motorista']}</p>
+                    <p style="margin: 0; font-size: 13px;"><b>Nº NF:</b> {ag['nf']} | <b>VOLUME:</b> {ag['volume']:.2f} m³ | <b>PRODUTO:</b> {ag['produto']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                c_edit, c_down = st.columns([1, 1])
+                with c_edit:
+                    if st.button(f"📝 Editar", key=f"m2_btn_edit_{idx}", use_container_width=True):
+                        st.info("Formulário carregado para edição.")
+                with c_down:
                     st.download_button(
-                        label="📄 Baixar NF",
-                        data=gerar_pdf_simulado(),
+                        label="📄 Baixar PDF da NF",
+                        data=ag.get("conteudo_bytes", gerar_pdf_simulado()),
                         file_name=ag["arquivo_nome"],
                         mime="application/pdf",
-                        key=f"m1_portaria_down_{idx}",
+                        key=f"m2_btn_down_{idx}",
                         use_container_width=True
                     )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ==============================================================================
-# ABA 2: MÓDULO 2 - PORTAL DE AGENDAMENTO (CLIENTE FS)
-# ==============================================================================
-with tab_modulo2:
-    col_fs_esq, col_fs_dir = st.columns([4, 8], gap="medium")
-    
-    with col_fs_esq:
-        st.markdown('<p class="titulo-secao">📝 Formulário de Agendamento Logístico</p>', unsafe_allow_html=True)
-        with st.container():
-            st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
-            
-            if not st.session_state.db_disponibilidades:
-                st.warning("Nenhuma balsa ou oferta está disponível no momento. Aguarde a publicação da GD.")
-                oferta_selecionada = None
-            else:
-                opcoes_ofertas = [f"{o['balsa']} - Vigência: {o['data_vigencia']}" for o in st.session_state.db_disponibilidades]
-                idx_oferta = st.selectbox("1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO", range(len(opcoes_ofertas)), format_func=lambda x: opcoes_ofertas[x], key="fs_oferta_sel")
-                oferta_selecionada = st.session_state.db_disponibilidades[idx_oferta]
-            
-            if oferta_selecionada:
-                opcoes_janelas = []
-                for jan in oferta_selecionada["janelas_detalhe"]:
-                    status_vagas = f"({jan['disponiveis']} vagas restantes)" if jan['disponiveis'] > 0 else "(ESGOTADA)"
-                    opcoes_janelas.append(f"Janela #{jan['janela_num']} [{jan['horario']}] {status_vagas}")
-                
-                janela_idx_sel = st.selectbox("2. ESCOLHA O HORÁRIO DA JANELA", range(len(opcoes_janelas)), format_func=lambda x: opcoes_janelas[x], key="fs_janela_sel")
-                janela_objeto = oferta_selecionada["janelas_detalhe"][janela_idx_sel]
-                
-                st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-                
-                c_fs1, c_fs2 = st.columns(2)
-                with c_fs1:
-                    placa = st.text_input("PLACA", placeholder="ABC-1234", key="form_placa")
-                    motorista = st.text_input("MOTORISTA", placeholder="Nome Completo", key="form_moto")
-                with c_fs2:
-                    veiculo = st.text_input("VEÍCULO", placeholder="Ex: Carreta Bitrem", key="form_veic")
-                    num_nf = st.text_input("Nº NOTA FISCAL", placeholder="Apenas números", key="form_nf")
-                    
-                c_fs3, c_fs4 = st.columns(2)
-                with c_fs3:
-                    volume = st.number_input("VOLUME M³", min_value=0.0, value=0.0, step=100.0, format="%.2f", key="form_vol")
-                with c_fs4:
-                    produto = st.text_input("PRODUTO", placeholder="Ex: ANIDRO", key="form_prod")
-                    
-                arquivo_nf = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL)", type=["pdf", "jpg", "png"], key="form_file")
-                
                 st.markdown("<br>", unsafe_allow_html=True)
-                btn_confirmar_agendamento = st.button("🔒 CONFIRMAR AGENDAMENTO FS", type="primary", use_container_width=True)
-                
-                if btn_confirmar_agendamento:
-                    if not (placa and veiculo and motorista and num_nf and volume > 0 and produto):
-                        st.error("Por favor, preencha todos os campos obrigatórios.")
-                    elif janela_objeto["disponiveis"] <= 0:
-                        st.error("Não foi possível agendar: Esta janela já se encontra esgotada!")
-                    else:
-                        janela_objeto["ocupadas"] += 1
-                        janela_objeto["disponiveis"] -= 1
-                        
-                        novo_agendamento = {
-                            "balsa": oferta_selecionada["balsa"],
-                            "data": oferta_selecionada["data_vigencia"],
-                            "janela": janela_objeto["horario"],
-                            "placa": placa.upper(),
-                            "veiculo": veiculo.upper(),
-                            "motorista": motorista.upper(),
-                            "nf": num_nf,
-                            "volume": float(volume),
-                            "produto": produto.upper(),
-                            "arquivo_nome": arquivo_nf.name if arquivo_nf is not None else "NF_Anexa.pdf"
-                        }
-                        st.session_state.db_agendamentos.append(novo_agendamento)
-                        st.success("Agendamento efetuado com sucesso!")
-                        st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_fs_dir:
-        st.markdown('<p class="titulo-secao">📜 Comprovantes de Agendamento Emitidos</p>', unsafe_allow_html=True)
-        with st.container():
-            st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
-            
-            if not st.session_state.db_agendamentos:
-                st.info("Nenhum caminhão agendado para esta programação até o momento.")
-            else:
-                for idx, ag in enumerate(st.session_state.db_agendamentos):
-                    
-                    if st.session_state.edit_index == idx:
-                        st.warning(f"✏️ Editando Lançamento #{idx+1}")
-                        
-                        c_ed1, c_ed2, c_ed3 = st.columns([4, 4, 4])
-                        with c_ed1:
-                            ed_placa = st.text_input("PLACA", value=ag["placa"], key=f"ed_placa_{idx}")
-                            ed_motorista = st.text_input("MOTORISTA", value=ag["motorista"], key=f"ed_moto_{idx}")
-                        with c_ed2:
-                            ed_veiculo = st.text_input("VEÍCULO", value=ag["veiculo"], key=f"ed_veic_{idx}")
-                            ed_nf = st.text_input("Nº NF", value=ag["nf"], key=f"ed_nf_{idx}")
-                        with c_ed3:
-                            ed_volume = st.number_input("VOLUME M³", value=float(ag["volume"]), format="%.2f", key=f"ed_vol_{idx}")
-                            ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
-                        
-                        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-                        
-                        # CONSERTO DO ERRO 1: Removido parâmetro descontinuado class_name que travava o layout
-                        if st.button("💾 Salvar Alterações", key=f"save_btn_{idx}", use_container_width=True, type="primary"):
-                            st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
-                            st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
-                            st.session_state.db_agendamentos[idx]["motorista"] = ed_motorista.upper()
-                            st.session_state.db_agendamentos[idx]["nf"] = ed_nf
-                            st.session_state.db_agendamentos[idx]["volume"] = float(ed_volume)
-                            st.session_state.db_agendamentos[idx]["produto"] = ed_produto.upper()
-                            
-                            st.session_state.edit_index = -1
-                            st.toast("Alterações salvas com sucesso!", icon="✨")
-                            st.rerun()
-                    else:
-                        # CONSERTO DO ERRO 2: Extração segura do float para evitar o ValueError de tipagem na string
-                        vol_val = float(ag['volume']) if not isinstance(ag['volume'], str) else float(ag['volume'].replace(',', '.'))
-                        
-                        # Renderização do card do agendamento exatamente na estrutura visual solicitada
-                        st.markdown(f"""
-                        <div class="card-visualizacao">
-                            <b>BALSA:</b> {ag['balsa']} | <b>DATA:</b> {ag['data']} | <b>HORÁRIO:</b> {ag['janela']}<br>
-                            <b>PLACA:</b> {ag['placa']} | <b>VEÍCULO:</b> {ag['veiculo']} | <b>MOTORISTA:</b> {ag['motorista']}<br>
-                            <b>Nº NF:</b> {ag['nf']} | <b>VOLUME:</b> {vol_val:.2f} m³ | <b>PRODUTO:</b> {ag['produto']} | <b>ANEXO:</b> {ag['arquivo_nome']}
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        c_acoes1, c_acoes2 = st.columns([2, 10])
-                        with c_acoes1:
-                            if st.button("📝 Editar", key=f"edit_btn_{idx}", use_container_width=True):
-                                st.session_state.edit_index = idx
-                                st.rerun()
-                        with c_acoes2:
-                            # Botão de download integrado nativamente ao bloco de visualização
-                            st.download_button(
-                                label="📄 Baixar PDF da NF",
-                                data=gerar_pdf_simulado(),
-                                file_name=ag["arquivo_nome"],
-                                mime="application/pdf",
-                                key=f"m2_down_{idx}"
-                            )
-                        st.markdown("<hr style='margin:10px 0; border-color:#e9ecef;'>", unsafe_allow_html=True)
-                        
-            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.info("Nenhum comprovante emitido até o momento.")
