@@ -147,7 +147,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "CÔMÔDULO 2: Portal de Agendamento (Cliente FS)"])
+tab_modulo1, tab_modulo2 = st.tabs(["⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", "📦 MÓDULO 2: Portal de Agendamento (Cliente FS)"])
 
 # ==============================================================================
 # ABA 1: MÓDULO GESTÃO DE DISPONIBILIDADE (GD)
@@ -295,7 +295,7 @@ with tab_modulo1:
             st.toast("Disponibilidade publicada com sucesso!", icon="✨")
             st.rerun()
 
-    # CORREÇÃO DO ERRO DO MODULO 1: Usando tipos explícitos nas colunas sem o parâmetro genérico "alignment"
+    # CORREÇÃO DO MODULO 1: Passagem limpa e direta sem dicionários com parâmetros obsoletos
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="titulo-secao">📋 Painel de Ofertas Vigentes no Sistema (Visão GD)</p>', unsafe_allow_html=True)
 
@@ -324,31 +324,18 @@ with tab_modulo1:
                 for j in item['janelas_detalhe']:
                     lista_tabela.append({
                         "IDENTIFICADOR": f"Janela #{j['janela_num']}",
-                        "HORÁRIO DE ATENDIMENTO": j['horario'],
+                        "HORÁRIO DE ATENDIMENTO": str(j['horario']),
                         "VAGAS OFERTADAS": int(j['vagas']),
                         "COTAS OCUPADAS": int(j['ocupadas']),
                         "VAGAS DISPONÍVEIS": int(j['disponiveis'])
                     })
                 
                 df_display = pd.DataFrame(lista_tabela)
-                
-                st.dataframe(
-                    df_display, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    density="compact",
-                    column_config={
-                        "IDENTIFICADOR": st.column_config.TextColumn("IDENTIFICADOR"),
-                        "HORÁRIO DE ATENDIMENTO": st.column_config.TextColumn("HORÁRIO DE ATENDIMENTO"),
-                        "VAGAS OFERTADAS": st.column_config.NumberColumn("VAGAS OFERTADAS"),
-                        "COTAS OCUPADAS": st.column_config.NumberColumn("COTAS OCUPADAS"),
-                        "VAGAS DISPONÍVEIS": st.column_config.NumberColumn("VAGAS DISPONÍVEIS"),
-                    }
-                )
+                st.dataframe(df_display, use_container_width=True, hide_index=True)
                 st.markdown("<hr style='margin: 15px 0; border-color: #e9ecef;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # VISÃO DE PORTARIA SEGURA COM DATA_FRAME PARA EVITAR QUEBRAS EM LAYOUT LATERAL
+    # VISÃO DE PORTARIA SEGURA COM DATA_FRAME PARA EVITAR QUEBRAS
     st.markdown('<p class="titulo-secao">📋 VEÍCULOS AGENDADOS (Visão Geral de Portaria)</p>', unsafe_allow_html=True)
     with st.container():
         st.markdown('<div class="card-body-custom">', unsafe_allow_html=True)
@@ -356,11 +343,7 @@ with tab_modulo1:
             st.markdown('<div style="text-align: center; color: #6c757d; padding: 10px;">Nenhum veículo agendado no sistema até o momento.</div>', unsafe_allow_html=True)
         else:
             df_portaria = pd.DataFrame(st.session_state.db_agendamentos)
-            st.dataframe(
-                df_portaria[["balsa", "data", "janela", "placa", "veiculo", "motorista", "nf", "volume", "produto", "arquivo_nome"]],
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(df_portaria, use_container_width=True, hide_index=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
@@ -448,7 +431,7 @@ with tab_modulo2:
             else:
                 for idx, ag in enumerate(st.session_state.db_agendamentos):
                     
-                    # CORREÇÃO DO ERRO DO MÓDULO 2: Renderização limpa de blocos nativos para evitar erros de sintaxe e parser
+                    # CORREÇÃO DO ERRO DO MÓDULO 2 (Tratamento seguro e remoção do class_name do st.button)
                     if st.session_state.edit_index == idx:
                         st.warning(f"✏️ Editando Lançamento #{idx+1}")
                         
@@ -464,7 +447,6 @@ with tab_modulo2:
                             ed_produto = st.text_input("PRODUTO", value=ag["produto"], key=f"ed_prod_{idx}")
                         
                         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-                        # Removido parâmetro inválido 'class_name' que causava erro catastrófico
                         if st.button("💾 Salvar Alterações", key=f"save_btn_{idx}", use_container_width=True, type="primary"):
                             st.session_state.db_agendamentos[idx]["placa"] = ed_placa.upper()
                             st.session_state.db_agendamentos[idx]["veiculo"] = ed_veiculo.upper()
@@ -477,12 +459,13 @@ with tab_modulo2:
                             st.toast("Alterações salvas com sucesso!", icon="✨")
                             st.rerun()
                     else:
-                        # Exibição limpa em cards informativos estáveis estruturados de forma 100% nativa
+                        vol_formatado = f"{ag['volume']}" if isinstance(ag['volume'], str) else f"{float(ag['volume']):.2f}"
+                        
                         st.markdown(f"""
                         <div class="card-visualizacao">
                             <b>BALSA:</b> {ag['balsa']} | <b>DATA:</b> {ag['data']} | <b>HORÁRIO:</b> {ag['janela']}<br>
                             <b>PLACA:</b> {ag['placa']} | <b>VEÍCULO:</b> {ag['veiculo']} | <b>MOTORISTA:</b> {ag['motorista']}<br>
-                            <b>Nº NF:</b> {ag['nf']} | <b>VOLUME:</b> {float(ag['volume']):.2f} m³ | <b>PRODUTO:</b> {ag['produto']} | <b>ANEXO:</b> {ag['arquivo_nome']}
+                            <b>Nº NF:</b> {ag['nf']} | <b>VOLUME:</b> {vol_formatado} m³ | <b>PRODUTO:</b> {ag['produto']} | <b>ANEXO:</b> {ag['arquivo_nome']}
                         </div>
                         """, unsafe_allow_html=True)
                         
@@ -497,8 +480,7 @@ with tab_modulo2:
                                 data=gerar_pdf_simulado(),
                                 file_name=ag["arquivo_nome"],
                                 mime="application/pdf",
-                                key=f"m2_down_{idx}",
-                                use_container_width=False
+                                key=f"m2_down_{idx}"
                             )
                         st.markdown("<hr style='margin:10px 0; border-color:#e9ecef;'>", unsafe_allow_html=True)
                         
