@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, time, timedelta
 import qrcode
 from io import BytesIO
+import os
 
 # 1. CONFIGURAÇÃO DA PÁGINA (Sempre no topo)
 st.set_page_config(
@@ -33,7 +34,7 @@ BALSAS_OPERACIONAIS = {
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, 
-    "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XX": {"capacidade": "2998.8 m³", "qs_meta": 49},
     "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
     "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
@@ -68,8 +69,20 @@ if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        # Link hospedado direto no Postimages para garantir o carregamento
-        st.image("https://i.postimg.cc/9F4GfXm1/image-1282ce.jpg", use_container_width=True)
+        
+        # Nome exato do arquivo que está no seu GitHub raiz
+        caminho_imagem = "Gemini_Generated_Image_mz1weumz1weumz1w.png"
+        
+        if os.path.exists(caminho_imagem):
+            st.image(caminho_imagem, use_container_width=True)
+        else:
+            # Caso o Streamlit Cloud precise do caminho absoluto do container
+            caminho_alternativo = os.path.join(os.path.dirname(__file__), caminho_imagem)
+            if os.path.exists(caminho_alternativo):
+                st.image(caminho_alternativo, use_container_width=True)
+            else:
+                st.warning("⚠️ Imagem carregada do Gemini não encontrada na raiz. Verifique se o nome do arquivo no ambiente local está idêntico ao do repositório.")
+            
         with st.container(border=True):
             user = st.text_input("Usuário / Funcionário")
             password = st.text_input("Senha de Acesso", type="password")
