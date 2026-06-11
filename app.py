@@ -59,10 +59,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------
-# 3. GERADOR DE TEXTO DO COMPROVANTE (NATIVO E SEGURO)
+# 3. GERADOR DE COMPROVANTE BACKUP (CASO NÃO FAÇA UPLOAD)
 # ---------------------------------------------------------------------------------
 def gerar_texto_comprovante(balsa, data, janela, placa, veiculo, motorista, nf, volume, produto):
-    """Gera um arquivo de texto estruturado e limpo que serve como comprovante oficial"""
     texto = f"""==================================================
 ZION TECNOLOGIA - COMPROVANTE DE AGENDAMENTO
 Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
@@ -86,7 +85,7 @@ Volume Cadastrado: {float(volume):.2f} m³
 --------------------------------------------------
 Documento de controle de pátio interno
 Validação de Portaria ZION
-=================================================="""
+==================================================™"""
     return texto.encode("utf-8")
 
 # ---------------------------------------------------------------------------------
@@ -109,7 +108,8 @@ if "db_agendamentos" not in st.session_state:
         {
             "balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00",
             "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO",
-            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", "arquivo_nome": "Comprovante_154639.txt"
+            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", "arquivo_nome": "Exemplo_NF.txt",
+            "conteudo_bytes": b"Arquivo Inicial de Teste da Portaria"
         }
     ]
 
@@ -127,7 +127,7 @@ aba1, aba2 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: GESTÃO DE DISPONIBILIDADE
+# MÓDULO 1: GESTÃO DE DISPONIBILIDADE (PORTARIA)
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1, 2])
@@ -170,11 +170,21 @@ with aba1:
                 "Nº NF": ag["nf"], "VOLUME": f"{float(ag['volume']):.2f} m³", "PRODUTO": ag["produto"], "NOME DO ARQUIVO": ag["arquivo_nome"]
             })
         
-        # Exibe apenas dados de texto limpos no dataframe para evitar o TypeError
-        st.dataframe(pd.DataFrame(registros_m1), use_container_width=True, hide_index=True)
+        col_tabela, col_botoes = st.columns([5.1, 0.9])
+        with col_tabela:
+            st.dataframe(pd.DataFrame(registros_m1), use_container_width=True, hide_index=True)
+        with col_botoes:
+            for idx, ag in enumerate(st.session_state.db_agendamentos):
+                st.download_button(
+                    label="📄 Ver NF",
+                    data=ag["conteudo_bytes"],
+                    file_name=ag["arquivo_nome"],
+                    key=f"m1_down_{idx}",
+                    use_container_width=True
+                )
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS)
+# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS COM UPLOAD)
 # =================================================================================
 with aba2:
     col_cadastro, col_cards = st.columns([1, 1.3])
@@ -203,6 +213,9 @@ with aba2:
             with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01)
             with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO").upper()
                 
+            # O CAMPO DE UPLOAD VOLTOU AQUI:
+            arq_upload = st.file_uploader("ARQUIVO (FAZER UPLOAD DA NOTA FISCAL EM PDF)", type=["pdf", "png", "jpg", "txt"])
+            
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
             if submetido:
@@ -215,19 +228,26 @@ with aba2:
                 else:
                     st.session_state.ofertas[index_janela]['cotas_o'] += 1
                     janela_limpa = st.session_state.ofertas[index_janela]['horario']
-                    nome_documento = f"Comprovante_{nf_in}.txt"
+                    
+                    # LOGICA HÍBRIDA DE ARQUIVO: Se ele anexou, pega o dele. Se não, gera o comprovante.
+                    if arq_upload is not None:
+                        nome_documento = arq_upload.name
+                        binario_doc = arq_upload.read()
+                    else:
+                        nome_documento = f"Comprovante_NF_{nf_in}.txt"
+                        binario_doc = gerar_texto_comprovante("SD II", "12/06/2026", janela_limpa, placa_in, veiculo_in, motorista_in, nf_in, volume_in, produto_in)
                     
                     st.session_state.db_agendamentos.append({
                         "balsa": "SD II", "data": "12/06/2026", "janela": janela_limpa,
                         "placa": placa_in, "veiculo": veiculo_in, "motorista": motorista_in,
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
-                        "arquivo_nome": nome_documento
+                        "arquivo_nome": nome_documento, "conteudo_bytes": binario_doc
                     })
-                    st.success("✅ Agendamento registrado com sucesso!")
+                    st.success("✅ Agendamento registrado e arquivo salvo com sucesso!")
                     st.rerun()
 
     with col_cards:
-        st.markdown('<div class="section-header-container">📜 Comprovantes de Agendamento Emitidos</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-container">📜 Comprovantes e Notas Fiscais Emitidas</div>', unsafe_allow_html=True)
         if st.session_state.db_agendamentos:
             for idx, ag in enumerate(st.session_state.db_agendamentos):
                 st.markdown(f"""
@@ -235,22 +255,14 @@ with aba2:
                     <span style="float: right; font-size: 11px; color: #6C757D;">📋 Registro #{idx+1}</span>
                     <p style="margin: 0 0 4px 0; font-size: 13px;"><b>BALSA:</b> {ag.get('balsa')} | <b>DATA:</b> {ag.get('data')} | <b>HORÁRIO:</b> {ag.get('janela')}</p>
                     <p style="margin: 0 0 4px 0; font-size: 13px;"><b>PLACA:</b> {ag.get('placa')} | <b>MOTORISTA:</b> {ag.get('motorista')}</p>
-                    <p style="margin: 0; font-size: 13px;"><b>Nº NF:</b> {ag.get('nf')} | <b>VOLUME:</b> {float(ag.get('volume', 0)):.2f} m³</p>
+                    <p style="margin: 0; font-size: 13px;"><b>Nº NF:</b> {ag.get('nf')} | <b>ARQUIVO salvo:</b> {ag.get('arquivo_nome')}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # O documento agora é gerado sob demanda, em tempo real, sem pesar na tabela
-                conteudo_download = gerar_texto_comprovante(
-                    ag.get('balsa'), ag.get('data'), ag.get('janela'),
-                    ag.get('placa'), ag.get('veiculo'), ag.get('motorista'),
-                    ag.get('nf'), ag.get('volume'), ag.get('produto')
-                )
-                
                 st.download_button(
-                    label="📄 Baixar Comprovante Oficial",
-                    data=conteudo_download,
-                    file_name=ag.get("arquivo_nome", "Comprovante.txt"),
-                    mime="text/plain",
+                    label=f"📄 Baixar {ag.get('arquivo_nome')}",
+                    data=ag.get("conteudo_bytes", b""),
+                    file_name=ag.get("arquivo_nome"),
                     key=f"m2_dw_{idx}",
                     use_container_width=True
                 )
