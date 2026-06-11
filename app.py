@@ -72,7 +72,7 @@ if not st.session_state.autenticado:
         
         caminho_imagem = "Gemini_Generated_Image_mz1weumz1weumz1w.png"
         
-        if os.path.exists(caminho_imagem):
+        if os.path.exists(caminue_imagem := "Gemini_Generated_Image_mz1weumz1weumz1w.png"):
             st.image(caminho_imagem, use_container_width=True)
         else:
             caminho_alternativo = os.path.join(os.path.dirname(__file__), caminho_imagem)
@@ -220,7 +220,9 @@ with aba1:
         qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=2, disabled=not st.session_state.modo_edicao_m1)
         exigencia_cts = st.number_input("Exigência (CTS)", min_value=1, value=int(cts_meta_original), key="m1_exigencia", disabled=not st.session_state.modo_edicao_m1)
         
-        if st.session_state.modo_edicao_m1:
+        # FIX OPERACIONAL: Gerar a estrutura apenas se ela estiver completamente vazia ou se os parâmetros estruturais mudarem
+        chave_verificacao = f"{balsa_sel}_{qtd_janelas_solicitadas}_{exigencia_cts}_{h_ini_str}_{h_fim_str}"
+        if st.session_state.modo_edicao_m1 and st.session_state.get("ultima_chave_config") != chave_verificacao:
             lista_janelas_calculadas = []
             fmt = "%H:%M"
             dt_atual = datetime.strptime(h_ini_str, fmt)
@@ -242,7 +244,9 @@ with aba1:
             for idx, jan in enumerate(lista_janelas_calculadas):
                 vagas_calculadas = vagas_por_janela_base + (1 if idx < resto_vagas else 0)
                 nova_grade.append({"id": jan["id"], "horario": jan["horario"], "vagas_o": int(vagas_calculadas)})
+            
             st.session_state.grade_trabalho = nova_grade
+            st.session_state.ultima_chave_config = chave_verificacao
 
     with col_dist:
         st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas e Ajuste Dinâmico Autocompensável</div>', unsafe_allow_html=True)
@@ -251,19 +255,21 @@ with aba1:
             total_janelas = len(st.session_state.grade_trabalho)
             cols_janelas = st.columns(4)
             
-            # ATUALIZADO: Lógica de compensação otimizada sem disparar st.rerun() no loop de inputs
             for idx, jan in enumerate(st.session_state.grade_trabalho):
                 col_id = idx % 4
                 with cols_janelas[col_id]:
                     st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
                     
                     valor_atual = int(jan["vagas_o"])
+                    
+                    # Definição segura do limite máximo para evitar estouros na digitação manual
                     novo_valor = st.number_input(
                         "Vagas", min_value=0, max_value=int(exigencia_cts), 
                         value=valor_atual, key=f"input_janela_{jan['id']}", 
                         label_visibility="collapsed", disabled=not st.session_state.modo_edicao_m1
                     )
                     
+                    # ALGORITMO DE AJUSTE SIMÉTRICO ATUALIZADO
                     if novo_valor != valor_atual and st.session_state.modo_edicao_m1:
                         st.session_state.grade_trabalho[idx]["vagas_o"] = novo_valor
                         
@@ -275,6 +281,7 @@ with aba1:
                         if indices_para_ajuste and diferenca != 0:
                             passo_compensacao = 1 if diferenca > 0 else -1
                             while diferenca != 0:
+                                alterou_nesta_rodada = False
                                 for i in indices_para_ajuste:
                                     if diferenca == 0:
                                         break
@@ -282,14 +289,19 @@ with aba1:
                                         continue
                                     st.session_state.grade_trabalho[i]["vagas_o"] += passo_compensacao
                                     diferenca -= passo_compensacao
-                            # Removido st.rerun() daqui para eliminar a lentidão por múltiplos loops de refresh
+                                    alterou_nesta_rodada = True
+                                
+                                # Quebra o loop caso não haja mais margem física de manobra em nenhuma outra janela
+                                if not alterou_nesta_rodada:
+                                    break
+                            st.rerun()
 
             soma_vagas_totais = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
             st.markdown("<br>", unsafe_allow_html=True)
             if soma_vagas_totais == exigencia_cts:
                 st.success(f"🎯 **Sincronismo Perfeito:** Total Distribuído: **{soma_vagas_totais}** de **{exigencia_cts}** exigidos pelo CTS.")
             else:
-                st.error(f"⚠️ **Aviso de Descompasso:** Total de vagas está em {soma_vagas_totais}, mas a exigência pede {exigencia_cts}.")
+                st.error(f"⚠️ **Aviso de Descompasso:** Total de vagas está em {soma_vagas_totais}, mas a exigência pede {exigencia_cts}. Ajuste as janelas manualmente.")
 
     # Visão da Tabela de Ofertas Vigentes Ativas
     st.markdown("<br>", unsafe_allow_html=True)
