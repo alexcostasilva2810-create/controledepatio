@@ -13,12 +13,40 @@ st.set_page_config(
 )
 
 # =================================================================================
+# DICIONÁRIO DE BALSAS OPERACIONAIS ORIGINAL RESTAURADO
+# =================================================================================
+BALSAS_OPERACIONAIS = {
+    "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, 
+    "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
+    "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
+    "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
+    "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24}, # Corrigido cta_meta para cts_meta
+    "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
+    "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
+    "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
+    "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
+    "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
+    "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
+    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
+    "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, # Corrigido qs_meta para cts_meta
+    "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, 
+    "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
+    "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
+    "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
+}
+
+# =================================================================================
 # ESPAÇO PARA CADASTRO DE FUNCIONÁRIOS
 # =================================================================================
 USUARIOS_CADASTRADOS = {
-    "admin": "zion123",        # Usuário: admin | Senha: zion123
-    "portaria": "patio2024",   # Usuário: portaria | Senha: patio2024
-    "fs_cliente": "fs01"       # Usuário: fs_cliente | Senha: fs01
+    "admin": "zion123",        
+    "portaria": "patio2024",   
+    "fs_cliente": "fs01"       
 }
 
 # ---------------------------------------------------------------------------------
@@ -78,7 +106,6 @@ if "ofertas" not in st.session_state:
         {"id": 8, "horario": "13:00 às 14:00", "vagas_o": 2, "cotas_o": 0},
     ]
 
-# CORREÇÃO CRÍTICA: Inicializando a base com todos os campos necessários para evitar KeyError
 if "db_agendamentos" not in st.session_state:
     st.session_state.db_agendamentos = [
         {
@@ -90,33 +117,30 @@ if "db_agendamentos" not in st.session_state:
         }
     ]
 
-if "editando_id" not in st.session_state:
-    st.session_state.editando_id = None
-
-# GERAÇÃO DO QR CODE
-def gerar_qrcode_dados(agendamento_dict):
-    conteudo_qr = (
+# GERAÇÃO DO TEXTO DO PASSPORT INTEGRADO
+def obter_texto_qrcode(agendamento_dict):
+    return (
         f"ID:{agendamento_dict['id']}\n"
+        f"BALSA:{agendamento_dict['balsa']}\n"
         f"PLACA:{agendamento_dict['placa']}\n"
         f"MOTORISTA:{agendamento_dict['motorista']}\n"
         f"JANELA:{agendamento_dict['janela']}\n"
         f"NF:{agendamento_dict['nf']}"
     )
+
+def gerar_imagem_qrcode(texto):
     qr = qrcode.QRCode(version=1, box_size=10, border=2)
-    qr.add_data(conteudo_qr)
+    qr.add_data(texto)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    
     buf = BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
 
-# CÁLCULO DE ATRASO
 def calcular_status_atraso(janela_str, horario_chegada_dt):
     try:
         hora_limite_str = janela_str.split(" às ")[1].strip()
         hora_limite = datetime.strptime(hora_limite_str, "%H:%M").time()
-        
         chegada_time = horario_chegada_dt.time()
         hoje = datetime.today()
         dt_limite = datetime.combine(hoje, hora_limite)
@@ -142,9 +166,6 @@ st.markdown("""
     
     div.stButton > button[key="btn_publicar_grade"] {
         background-color: #1E3A8A !important; color: white !important; border: 1px solid #172554 !important; width: 100%; font-weight: bold !important; padding: 12px !important; border-radius: 6px !important;
-    }
-    div[data-testid="stForm"] .stButton>button {
-        background-color: #FF4D4D !important; color: white !important; border: none !important; width: 100%; font-weight: bold; padding: 10px;
     }
     .tabela-header { background-color: #F1F3F5; font-weight: bold; padding: 8px; border-bottom: 2px solid #CED4DA; text-align: center; font-size: 11px; }
     .tabela-linha { padding: 6px; border-bottom: 1px solid #DEE2E6; text-align: center; font-size: 12px; display: flex; align-items: center; justify-content: center; }
@@ -174,7 +195,14 @@ with aba1:
     col_config, col_dist = st.columns([1.2, 2])
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
-        st.selectbox("Selecione a Embarcação", ["SD II"], key="m1_balsa")
+        
+        # Puxa a lista real das chaves do dicionário de balsas
+        balsa_selecionada_m1 = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa")
+        
+        # Busca automática dos dados da balsa selecionada
+        dados_balsa_atual = BALSAS_OPERACIONAIS[balsa_selecionada_m1]
+        st.info(f"📊 **Capacidade Nominal:** {dados_balsa_atual['capacidade']}")
+        
         st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data")
         
         st.markdown("**Período de Chegada na ETC:**")
@@ -186,10 +214,11 @@ with aba1:
         with c_int: intervalo_janela = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0)
         with c_qtd_jan: qtd_janelas = st.selectbox("Janelas Ofertadas:", [6, 8, 12, 24], index=1)
             
-        exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=25)
+        # Puxa automaticamente o valor cts_meta cadastrado no seu dicionário
+        exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=int(dados_balsa_atual["cts_meta"]))
         
         if st.button("🔄 PUBLICAR E CONFIGURAR GRADE", key="btn_publicar_grade"):
-            st.success("Nova grade de disponibilidade publicada com sucesso!")
+            st.success(f"Nova grade para a balsa {balsa_selecionada_m1} publicada com sucesso!")
 
     with col_dist:
         st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas</div>', unsafe_allow_html=True)
@@ -201,21 +230,21 @@ with aba1:
                 st.number_input("Vagas", min_value=0, value=of['vagas_o'], key=f"v_m1_{of['id']}", label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Linha Verde = Esgotado)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema</div>', unsafe_allow_html=True)
     df_of = pd.DataFrame(st.session_state.ofertas)
     df_of.columns = ['IDENTIFICADOR', 'HORÁRIO DE ATENDIMENTO', 'VAGAS OFERTADAS', 'COTAS OCUPADAS']
     df_of['VAGAS DISPONÍVEIS'] = df_of['VAGAS OFERTADAS'] - df_of['COTAS OCUPADAS']
-    st.dataframe(df_of.style.apply(lambda row: ['background-color: #D4EDDA; color: #155724; font-weight: bold;'] * len(row) if row['VAGAS DISPONÍVEIS'] <= 0 else [''] * len(row), axis=1), use_container_width=True, hide_index=True)
+    st.dataframe(df_of, use_container_width=True, hide_index=True)
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO
+# MÓDULO 2: PORTAL DE AGENDAMENTO (GERAÇÃO DE PASSAPORTE)
 # =================================================================================
 with aba2:
     col_cadastro, col_tabela_fs = st.columns([1.1, 2.5])
     with col_cadastro:
         st.markdown('<div class="section-header-container">📝 Novo Agendamento Logístico</div>', unsafe_allow_html=True)
         with st.form("form_novo_agendamento", clear_on_submit=True):
-            st.selectbox("1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO", ["SD II - Vigência: 12/06/2026"])
+            balsa_selecionada_ag = st.selectbox("1. SELECIONE A EMBARCAÇÃO", [f"{b} ({BALSAS_OPERACIONAIS[b]['capacidade']})" for b in BALSAS_OPERACIONAIS.keys()])
             
             opcoes_seletor = []
             for of in st.session_state.ofertas:
@@ -237,14 +266,12 @@ with aba2:
             with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01)
             with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO").upper()
                 
-            arq_upload = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL EM PDF)", type=["pdf"])
+            arq_upload = st.file_uploader("ANEXAR NOTA FISCAL (PDF)", type=["pdf"])
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
             if submetido:
-                # CORREÇÃO DA LINHA 259: Tratamento da extração limpa do ID da janela
                 partes_janela = janela_selecionada.split("#")
                 id_janela_sel = int(partes_janela[1].split(" ")[0])
-                
                 index_janela = next((index for (index, d) in enumerate(st.session_state.ofertas) if d["id"] == id_janela_sel), None)
                 vagas_restantes = st.session_state.ofertas[index_janela]['vagas_o'] - st.session_state.ofertas[index_janela]['cotas_o']
                 
@@ -253,13 +280,14 @@ with aba2:
                 else:
                     st.session_state.ofertas[index_janela]['cotas_o'] += 1
                     janela_limpa = st.session_state.ofertas[index_janela]['horario']
+                    balsa_nome_limpo = balsa_selecionada_ag.split(" (")[0]
                     
                     binario_doc = arq_upload.read() if arq_upload else b""
                     nome_documento = arq_upload.name if arq_upload else f"Nota_{nf_in}.pdf"
                     
                     novo_id = int(datetime.now().timestamp())
                     st.session_state.db_agendamentos.append({
-                        "id": novo_id, "balsa": "SD II", "data": "12/06/2026", "janela": janela_limpa,
+                        "id": novo_id, "balsa": balsa_nome_limpo, "data": "12/06/2026", "janela": janela_limpa,
                         "placa": placa_in, "veiculo": veiculo_in, "motorista": motorista_in,
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
                         "arquivo_nome": nome_documento, "conteudo_bytes": binario_doc,
@@ -269,50 +297,52 @@ with aba2:
                     st.rerun()
 
     with col_tabela_fs:
-        st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS FS (Com Emissão de QR Code)</div>', unsafe_allow_html=True)
-        pesos_colunas = [1.0, 1.3, 1.0, 1.1, 1.5, 1.0, 1.0, 1.2]
+        st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS (Emissão do Passe do Carreteiro)</div>', unsafe_allow_html=True)
+        pesos_colunas = [0.8, 1.0, 1.3, 1.0, 1.1, 1.5, 1.0, 1.4]
         
         c = st.columns(pesos_colunas)
-        c[0].markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
-        c[1].markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
-        c[2].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
-        c[3].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
-        c[4].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
-        c[5].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
-        c[6].markdown('<div class="tabela-header">VOLUME</div>', unsafe_allow_html=True)
-        c[7].markdown('<div class="tabela-header">PASSAPORTE</div>', unsafe_allow_html=True)
+        c[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
+        c[1].markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
+        c[2].markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
+        c[3].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
+        c[4].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
+        c[5].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
+        c[6].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
+        c[7].markdown('<div class="tabela-header">PASSAPORTE CARRETEIRO</div>', unsafe_allow_html=True)
         
         for idx, ag in enumerate(st.session_state.db_agendamentos):
             l = st.columns(pesos_colunas)
-            l[0].markdown(f'<div class="tabela-linha">{ag.get("data")}</div>', unsafe_allow_html=True)
-            l[1].markdown(f'<div class="tabela-linha">{ag.get("janela")}</div>', unsafe_allow_html=True)
-            l[2].markdown(f'<div class="tabela-linha">{ag.get("placa")}</div>', unsafe_allow_html=True)
-            l[3].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
-            l[4].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
-            l[5].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
-            l[6].markdown(f'<div class="tabela-linha">{float(ag.get("volume", 0)):.2f}</div>', unsafe_allow_html=True)
+            l[0].markdown(f'<div class="tabela-linha">{ag.get("balsa")}</div>', unsafe_allow_html=True)
+            l[1].markdown(f'<div class="tabela-linha">{ag.get("data")}</div>', unsafe_allow_html=True)
+            l[2].markdown(f'<div class="tabela-linha">{ag.get("janela")}</div>', unsafe_allow_html=True)
+            l[3].markdown(f'<div class="tabela-linha">{ag.get("placa")}</div>', unsafe_allow_html=True)
+            l[4].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
+            l[5].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
+            l[6].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
             
-            bytes_qr = gerar_qrcode_dados(ag)
+            texto_qr = obter_texto_qrcode(ag)
+            bytes_qr = gerar_imagem_qrcode(texto_qr)
+            
             l[7].download_button(
-                label="📲 Baixar QR",
+                label="📄 Imprimir Passe",
                 data=bytes_qr,
-                file_name=f"QR_ETC_{ag['placa']}.png",
+                file_name=f"PASSAPORTE_ZION_{ag['placa']}.png",
                 mime="image/png",
                 key=f"qr_down_{ag['id']}",
                 use_container_width=True
             )
 
 # =================================================================================
-# MÓDULO 3: RECEPÇÃO E APONTAMENTO DA CHEGADA NA ETA / ETC
+# MÓDULO 3: RECEPÇÃO E APONTAMENTO (DESCARGA COMPLETA VIA PORTARIA)
 # =================================================================================
 with aba3:
-    st.markdown('<div class="section-header-container">📱 Recepção Digital de Portaria (Leitura de SmartPhone)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📱 Recepção Digital de Portaria</div>', unsafe_allow_html=True)
     col_scan, col_manual = st.columns([1.5, 2])
     
     with col_scan:
         st.subheader("Simulador de Scanner de Celular")
-        codigo_scaneado = st.text_area("Cole aqui o texto lido pelo celular (or digite o ID do agendamento):", 
-                                       placeholder="ID:100\nPLACA:JVV-7606...", height=100)
+        codigo_scaneado = st.text_area("Cole aqui o texto lido pelo celular (do passaporte do carreteiro):", 
+                                       placeholder="ID:100\nBALSA:SD II\nPLACA:JVV-7606...", height=100)
         
         if st.button("📥 PROCESSAR ENTRADA IMEDIATA", use_container_width=True):
             if codigo_scaneado:
@@ -335,7 +365,7 @@ with aba3:
                             agora = datetime.now()
                             st.session_state.db_agendamentos[idx_encontrado]["chegada_efetiva"] = agora.strftime("%H:%M:%S")
                             st.session_state.db_agendamentos[idx_encontrado]["status_chegada"] = calcular_status_atraso(ag_alvo["janela"], agora)
-                            st.success(f"✅ Entrada registrada para a Placa {ag_alvo['placa']} às {agora.strftime('%H:%M:%S')}!")
+                            st.success(f"✅ Entrada registrada para a Placa {ag_alvo['placa']} na balsa {ag_alvo['balsa']} às {agora.strftime('%H:%M:%S')}!")
                             st.rerun()
                         else:
                             st.warning("⚠️ Este veículo já teve sua chegada registrada anteriormente.")
@@ -349,7 +379,7 @@ with aba3:
         veiculos_nao_recebidos = [ag for ag in st.session_state.db_agendamentos if ag.get("chegada_efetiva") is None]
         if veiculos_nao_recebidos:
             selecionado_manual = st.selectbox("Selecione o veículo para dar entrada:", 
-                                              options=[f"ID: {v['id']} | Placa: {v['placa']} - Mot: {v['motorista']}" for v in veiculos_nao_recebidos])
+                                              options=[f"ID: {v['id']} | Balsa: {v['balsa']} | Placa: {v['placa']} - Mot: {v['motorista']}" for v in veiculos_nao_recebidos])
             if st.button("⏱️ REGISTRAR CHEGADA AGORA", use_container_width=True):
                 id_manual = int(selecionado_manual.split("ID: ")[1].split(" |")[0])
                 idx_m = next((i for i, item in enumerate(st.session_state.db_agendamentos) if item["id"] == id_manual), None)
@@ -362,31 +392,33 @@ with aba3:
             st.info("Todos os caminhões agendados já se encontram no porto ou pátio.")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="section-header-container">📋 Painel de Controle de Tempo e Atrasos (Histórico de ETA/ETC)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📋 Painel de Controle de Tempo e Atrasos (Histórico Completo)</div>', unsafe_allow_html=True)
     
-    pesos_m3 = [1.2, 1.5, 1.0, 1.2, 1.5, 1.0, 1.2, 1.2]
+    pesos_m3 = [0.8, 1.2, 1.5, 1.0, 1.2, 1.5, 1.0, 1.2, 1.2]
     c_m3 = st.columns(pesos_m3)
-    c_m3[0].markdown('<div class="tabela-header">ID</div>', unsafe_allow_html=True)
-    c_m3[1].markdown('<div class="tabela-header">JANELA PROGRAMADA</div>', unsafe_allow_html=True)
-    c_m3[2].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
-    c_m3[3].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
-    c_m3[4].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
-    c_m3[5].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
-    c_m3[6].markdown('<div class="tabela-header">HORA REAL CHEGADA</div>', unsafe_allow_html=True)
-    c_m3[7].markdown('<div class="tabela-header">STATUS OPERACIONAL</div>', unsafe_allow_html=True)
+    c_m3[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
+    c_m3[1].markdown('<div class="tabela-header">ID</div>', unsafe_allow_html=True)
+    c_m3[2].markdown('<div class="tabela-header">JANELA PROGRAMADA</div>', unsafe_allow_html=True)
+    c_m3[3].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
+    c_m3[4].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
+    c_m3[5].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
+    c_m3[6].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
+    c_m3[7].markdown('<div class="tabela-header">HORA REAL CHEGADA</div>', unsafe_allow_html=True)
+    c_m3[8].markdown('<div class="tabela-header">STATUS OPERACIONAL</div>', unsafe_allow_html=True)
     
     for ag in st.session_state.db_agendamentos:
         l_m3 = st.columns(pesos_m3)
-        l_m3[0].markdown(f'<div class="tabela-linha">{ag.get("id")}</div>', unsafe_allow_html=True)
-        l_m3[1].markdown(f'<div class="tabela-linha">{ag.get("janela")}</div>', unsafe_allow_html=True)
-        l_m3[2].markdown(f'<div class="tabela-linha">{ag.get("placa")}</div>', unsafe_allow_html=True)
-        l_m3[3].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
-        l_m3[4].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
-        l_m3[5].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
+        l_m3[0].markdown(f'<div class="tabela-linha">{ag.get("balsa")}</div>', unsafe_allow_html=True)
+        l_m3[1].markdown(f'<div class="tabela-linha">{ag.get("id")}</div>', unsafe_allow_html=True)
+        l_m3[2].markdown(f'<div class="tabela-linha">{ag.get("janela")}</div>', unsafe_allow_html=True)
+        l_m3[3].markdown(f'<div class="tabela-linha">{ag.get("placa")}</div>', unsafe_allow_html=True)
+        l_m3[4].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
+        l_m3[5].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
+        l_m3[6].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
         
         hora_c = ag.get("chegada_efetiva") if ag.get("chegada_efetiva") else "--:--:--"
-        l_m3[6].markdown(f'<div class="tabela-linha" style="font-weight:bold; color:#1E3A8A;">{hora_c}</div>', unsafe_allow_html=True)
+        l_m3[7].markdown(f'<div class="tabela-linha" style="font-weight:bold; color:#1E3A8A;">{hora_c}</div>', unsafe_allow_html=True)
         
         status_c = ag.get("status_chegada") if ag.get("status_chegada") else "Aguardando"
         cor_status = "#334155" if "Aguardando" in status_c else ("#DC2626" if "Atrasado" in status_c else "#16A34A")
-        l_m3[7].markdown(f'<div class="tabela-linha" style="color:{cor_status}; font-weight:bold;">{status_c}</div>', unsafe_allow_html=True)
+        l_m3[8].markdown(f'<div class="tabela-linha" style="color:{cor_status}; font-weight:bold;">{status_c}</div>', unsafe_allow_html=True)
