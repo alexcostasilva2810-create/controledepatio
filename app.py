@@ -1,13 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import io
-
-# Importações seguras do ReportLab (Padrão de mercado para Streamlit)
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
 
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
@@ -66,52 +59,76 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------
-# 3. GERADOR DE PDF PROFISSIONAL COM REPORTLAB (NUNCA DA ERRO DE DEFINIÇÃO)
+# 3. GERADOR DE COMPROVANTE (NATIVO - SEM BIBLIOTECAS EXTERNAS)
 # ---------------------------------------------------------------------------------
-def gerar_comprovante_pdf(balsa, data, janela, placa, veiculo, motorista, nf, volume, produto):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-    story = []
-    
-    styles = getSampleStyleSheet()
-    
-    # Estilos customizados
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, leading=20, alignment=1, textColor=colors.HexColor('#0B192C'))
-    header_style = ParagraphStyle('HeaderStyle', parent=styles['Heading2'], fontSize=12, leading=16, textColor=colors.HexColor('#343A40'), spaceBefore=10, spaceAfter=5)
-    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=10, leading=14)
-    
-    # Conteúdo do PDF
-    story.append(Paragraph("<b>ZION TECNOLOGIA - COMPROVANTE DE AGENDAMENTO</b>", title_style))
-    story.append(Spacer(1, 15))
-    story.append(Paragraph(f"<b>Data de Emissão:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", normal_style))
-    story.append(Spacer(1, 10))
-    
-    # Tabela 1: Programação
-    story.append(Paragraph("<b>1. DADOS DA PROGRAMAÇÃO LOGÍSTICA</b>", header_style))
-    dados_p = [
-        [Paragraph(f"<b>Balsa:</b> {balsa}", normal_style), 
-         Paragraph(f"<b>Data:</b> {data}", normal_style), 
-         Paragraph(f"<b>Janela:</b> {janela}", normal_style)]
-    ]
-    t1 = Table(dados_p, colWidths=[180, 180, 180])
-    t1.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 1, colors.grey), ('INNERGRID', (0,0), (-1,-1), 0.5, colors.lightgrey), ('PADDING', (0,0), (-1,-1), 6)]))
-    story.append(t1)
-    story.append(Spacer(1, 15))
-    
-    # Tabela 2: Veículo e Carga
-    story.append(Paragraph("<b>2. INFORMAÇÕES DO VEÍCULO E CARGA</b>", header_style))
-    dados_v = [
-        [Paragraph(f"<b>Motorista:</b> {motorista}", normal_style), Paragraph(f"<b>Produto:</b> {produto}", normal_style)],
-        [Paragraph(f"<b>Placa:</b> {placa}", normal_style), Paragraph(f"<b>Veículo:</b> {veiculo}", normal_style)],
-        [Paragraph(f"<b>Nº NF:</b> {nf}", normal_style), Paragraph(f"<b>Volume:</b> {float(volume):.2f} m³", normal_style)]
-    ]
-    t2 = Table(dados_v, colWidths=[270, 270])
-    t2.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 1, colors.grey), ('INNERGRID', (0,0), (-1,-1), 0.5, colors.lightgrey), ('PADDING', (0,0), (-1,-1), 6)]))
-    story.append(t2)
-    
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
+def gerar_comprovante_html_bytes(balsa, data, janela, placa, veiculo, motorista, nf, volume, produto):
+    """Gera um arquivo HTML formatado como documento que qualquer navegador baixa e imprime como PDF"""
+    html_content = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; padding: 30px; color: #333; }}
+            .header {{ text-align: center; border-bottom: 2px solid #0B192C; padding-bottom: 10px; margin-bottom: 20px; }}
+            .title {{ font-size: 20px; font-weight: bold; color: #0B192C; }}
+            .meta {{ text-align: right; font-size: 12px; color: #666; }}
+            .section-title {{ font-size: 14px; font-weight: bold; background: #343A40; color: white; padding: 6px; margin-top: 20px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+            th, td {{ border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 13px; }}
+            th {{ background: #f2f2f2; }}
+            .footer {{ text-align: center; margin-top: 50px; font-size: 11px; color: #777; border-top: 1px solid #ccc; padding-top: 10px; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="title">ZION TECNOLOGIA - COMPROVANTE DE AGENDAMENTO</div>
+            <div class="meta">Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</div>
+        </div>
+        
+        <div class="section-title">1. DADOS DA PROGRAMAÇÃO LOGÍSTICA</div>
+        <table>
+            <tr>
+                <th>Embarcação / Balsa</th>
+                <th>Data da Operação</th>
+                <th>Janela Horária</th>
+            </tr>
+            <tr>
+                <td>{balsa}</td>
+                <td>{data}</td>
+                <td>{janela}</td>
+            </tr>
+        </table>
+
+        <div class="section-title">2. INFORMAÇÕES DO VEÍCULO E CARGA</div>
+        <table>
+            <tr>
+                <th>Motorista</th>
+                <td>{motorista}</td>
+                <th>Produto</th>
+                <td>{produto}</td>
+            </tr>
+            <tr>
+                <th>Placa</th>
+                <td>{placa}</td>
+                <th>Veículo</th>
+                <td>{veiculo}</td>
+            </tr>
+            <tr>
+                <th>Nº Nota Fiscal</th>
+                <td>{nf}</td>
+                <th>Volume Cadastrado</th>
+                <td>{float(volume):.2f} m³</td>
+            </tr>
+        </table>
+
+        <div class="footer">
+            Documento de controle de pátio interno - Validação de Portaria ZION<br>
+            Vinculado à NF-e informada pelo cliente da cota operacional.
+        </div>
+    </body>
+    </html>
+    """
+    return html_content.encode("utf-8")
 
 # ---------------------------------------------------------------------------------
 # 4. BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
@@ -123,9 +140,7 @@ if "ofertas" not in st.session_state:
         {"id": 3, "horario": "08:00 às 09:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 4, "horario": "09:00 às 10:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 5, "horario": "10:00 às 11:00", "vagas_o": 2, "cotas_o": 0},
-        {"id": 6, "horario": "11:00 às 12:00", "vagas_o": 2, "cotas_o": 0},
-        {"id": 7, "horario": "12:00 às 13:00", "vagas_o": 2, "cotas_o": 0},
-        {"id": 8, "horario": "13:00 às 14:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 6, "11:00 às 12:00": "11:00 às 12:00", "vagas_o": 2, "cotas_o": 0},
     ]
 
 if "db_agendamentos" not in st.session_state:
@@ -133,12 +148,12 @@ if "db_agendamentos" not in st.session_state:
         {
             "balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00",
             "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO",
-            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", "arquivo_nome": "NF 1736.pdf",
-            "conteudo_bytes": gerar_comprovante_pdf("SD II", "12/06/2026", "06:00 às 07:00", "JVV-7606", "BITREN", "JOSE FRANCISCO", "154639", 51000.00, "ANIDRO")
+            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", "arquivo_nome": "Comprovante_154639.html",
+            "conteudo_bytes": gerar_comprovante_html_bytes("SD II", "12/06/2026", "06:00 às 07:00", "JVV-7606", "BITREN", "JOSE FRANCISCO", "154639", 51000.00, "ANIDRO")
         }
     ]
 
-# Painel Superior Principal
+# Cabeçalho Principal do Painel
 st.markdown("""
     <div class="top-banner">
         <h1>ZION TECNOLOGIA - LOGÍSTICA</h1>
@@ -152,7 +167,7 @@ aba1, aba2 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1
+# MÓDULO 1: GESTÃO DE DISPONIBILIDADE
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1, 2])
@@ -161,23 +176,22 @@ with aba1:
         st.selectbox("Selecione a Embarcação", ["SD II"], key="m1_balsa")
         st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data")
         exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=25)
-        st.selectbox("Hora Início", ["06:00", "07:00", "08:00"])
         if st.button("🔴 PUBLICAR DISPONIBILIDADE", use_container_width=True):
-            st.success("Configuração atualizada!")
+            st.success("Configuração atualizada com sucesso!")
 
     with col_dist:
         st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas</div>', unsafe_allow_html=True)
-        cols_janelas = st.columns(4)
-        for idx, of in enumerate(st.session_state.ofertas):
-            col_id = idx % 4
+        cols_janelas = st.columns(3)
+        for idx, of in enumerate(st.session_state.ofertas[:6]):
+            col_id = idx % 3
             with cols_janelas[col_id]:
                 st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{of["id"]}</div><div style="font-weight:bold;color:#007BFF;">{of["horario"]}</div></div>', unsafe_allow_html=True)
-                st.number_input("Vagas", min_value=0, value=of['vagas_o'], key=f"v_man_{of['id']}", label_visibility="collapsed")
+                st.number_input("Vagas", min_value=0, value=of['vagas_o'], key=f"v_m1_{of['id']}", label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Linha Verde = Esgotado)</div>', unsafe_allow_html=True)
     
-    df_of = pd.DataFrame(st.session_state.ofertas)
+    df_of = pd.DataFrame(st.session_state.ofertas[:5])
     df_of.columns = ['IDENTIFICADOR', 'HORÁRIO DE ATENDIMENTO', 'VAGAS OFERTADAS', 'COTAS OCUPADAS']
     df_of['VAGAS DISPONÍVEIS'] = df_of['VAGAS OFERTADAS'] - df_of['COTAS OCUPADAS']
     
@@ -193,7 +207,7 @@ with aba1:
             registros_m1.append({
                 "BALSA": ag["balsa"], "DATA": ag["data"], "HORÁRIO": ag["janela"],
                 "PLACA": ag["placa"], "VEÍCULO": ag["veiculo"], "MOTORISTA": ag["motorista"],
-                "Nº NF": ag["nf"], "VOLUME": f"{float(ag['volume']):.2f} m³", "PRODUTO": ag["produto"], "ANEXO": ag["arquivo_nome"]
+                "Nº NF": ag["nf"], "VOLUME": f"{float(ag['volume']):.2f} m³", "PRODUTO": ag["produto"], "DOCUMENTO": ag["arquivo_nome"]
             })
         col_tabela, col_botoes = st.columns([5.1, 0.9])
         with col_tabela:
@@ -201,16 +215,16 @@ with aba1:
         with col_botoes:
             for idx, ag in enumerate(st.session_state.db_agendamentos):
                 st.download_button(
-                    label="📄 PDF",
+                    label="📄 DOC",
                     data=ag["conteudo_bytes"],
                     file_name=ag["arquivo_nome"],
-                    mime="application/pdf",
+                    mime="text/html",
                     key=f"m1_down_{idx}",
                     use_container_width=True
                 )
 
 # =================================================================================
-# MÓDULO 2
+# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS)
 # =================================================================================
 with aba2:
     col_cadastro, col_cards = st.columns([1, 1.3])
@@ -220,7 +234,7 @@ with aba2:
             st.selectbox("1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO", ["SD II - Vigência: 12/06/2026"])
             
             opcoes_seletor = []
-            for of in st.session_state.ofertas:
+            for of in st.session_state.ofertas[:5]:
                 restantes = of['vagas_o'] - of['cotas_o']
                 status_texto = f"({restantes} vagas)" if restantes > 0 else "(ESGOTADA)"
                 opcoes_seletor.append(f"Janela #{of['id']} [{of['horario']}] {status_texto}")
@@ -239,57 +253,7 @@ with aba2:
             with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01)
             with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO").upper()
                 
-            arq_upload = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL)", type=["pdf", "png", "jpg", "jpeg"])
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
             if submetido:
-                id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
-                index_janela = next((index for (index, d) in enumerate(st.session_state.ofertas) if d["id"] == id_janela_sel), None)
-                vagas_restantes = st.session_state.ofertas[index_janela]['vagas_o'] - st.session_state.ofertas[index_janela]['cotas_o']
-                
-                if vagas_restantes <= 0:
-                    st.error("❌ Erro: Esta janela horária está esgotada!")
-                else:
-                    st.session_state.ofertas[index_janela]['cotas_o'] += 1
-                    janela_limpa = st.session_state.ofertas[index_janela]['horario']
-                    nome_documento = arq_upload.name if arq_upload is not None else f"NF_{nf_in}.pdf"
-                    
-                    if arq_upload is not None:
-                        binario_pdf = arq_upload.read()
-                    else:
-                        binario_pdf = gerar_comprovante_pdf("SD II", "12/06/2026", janela_limpa, placa_in, veiculo_in, motorista_in, nf_in, volume_in, produto_in)
-                    
-                    st.session_state.db_agendamentos.append({
-                        "balsa": "SD II", "data": "12/06/2026", "janela": janela_limpa,
-                        "placa": placa_in, "veiculo": veiculo_in, "motorista": motorista_in,
-                        "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
-                        "arquivo_nome": nome_documento, "conteudo_bytes": binario_pdf
-                    })
-                    st.success("✅ Agendamento registrado com sucesso!")
-                    st.rerun()
-
-    with col_cards:
-        st.markdown('<div class="section-header-container">📜 Comprovantes de Agendamento Emitidos</div>', unsafe_allow_html=True)
-        if st.session_state.db_agendamentos:
-            for idx, ag in enumerate(st.session_state.db_agendamentos):
-                st.markdown(f"""
-                <div style="background-color: #F8F9FA; border-left: 4px solid #007BFF; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
-                    <span style="float: right; font-size: 11px; color: #6C757D;">📋 Registro #{idx+1}</span>
-                    <p style="margin: 0 0 4px 0; font-size: 13px;"><b>BALSA:</b> {ag.get('balsa')} | <b>DATA:</b> {ag.get('data')} | <b>HORÁRIO:</b> {ag.get('janela')}</p>
-                    <p style="margin: 0 0 4px 0; font-size: 13px;"><b>PLACA:</b> {ag.get('placa')} | <b>MOTORISTA:</b> {ag.get('motorista')}</p>
-                    <p style="margin: 0; font-size: 13px;"><b>Nº NF:</b> {ag.get('nf')} | <b>VOLUME:</b> {float(ag.get('volume', 0)):.2f} m³ | <b>ANEXO:</b> {ag.get('arquivo_nome')}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                c_ed, c_dw = st.columns(2)
-                with c_ed: st.button("📝 Editar", key=f"m2_ed_{idx}", use_container_width=True)
-                with c_dw:
-                    st.download_button(
-                        label="📄 Baixar PDF da NF",
-                        data=ag.get("conteudo_bytes", b""),
-                        file_name=ag.get("arquivo_nome", "Documento.pdf"),
-                        mime="application/pdf",
-                        key=f"m2_dw_{idx}",
-                        use_container_width=True
-                    )
-                st.markdown("<br>", unsafe_allow_html=True)
+                id_janela_sel = int(janela_selecionada.split("#")[1].split("
