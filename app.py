@@ -91,11 +91,13 @@ if "ofertas" not in st.session_state:
     ]
 
 if "db_agendamentos" not in st.session_state:
+    # Exemplo inicial com um arquivo simulado em bytes
     st.session_state.db_agendamentos = [
         {
             "id": 0, "balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00",
             "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO",
-            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", "arquivo_nome": "Exemplo_NF.pdf"
+            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", 
+            "arquivo_nome": "Nota_Fiscal_154639.pdf", "conteudo_bytes": b"%PDF-1.4 ... (dados simulados da NF)"
         }
     ]
 
@@ -116,7 +118,7 @@ aba1, aba2 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: GESTÃO DE DISPONIBILIDADE
+# MÓDULO 1: GESTÃO DE DISPONIBILIDADE (PORTARIA COM ACESSO AO PDF REAL)
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1, 2])
@@ -150,31 +152,47 @@ with aba1:
     st.dataframe(df_of.style.apply(aplicar_cor_vagas, axis=1), use_container_width=True, hide_index=True)
 
     st.markdown('<div class="section-header-container">🗂️ VEÍCULOS AGENDADOS (Visão Geral de Portaria)</div>', unsafe_allow_html=True)
+    
     if st.session_state.db_agendamentos:
-        registros_m1 = []
-        for ag in st.session_state.db_agendamentos:
-            # Tratamento para garantir que o volume não quebre a tabela do Módulo 1
-            try:
-                vol_formatado = f"{float(ag.get('volume', 0)):.2f} m³"
-            except:
-                vol_formatado = f"{ag.get('volume')} m³"
-                
-            registros_m1.append({
-                "BALSA": ag.get("balsa", ""), 
-                "DATA": ag.get("data", ""), 
-                "HORÁRIO": ag.get("janela", ""),
-                "PLACA": ag.get("placa", ""), 
-                "VEÍCULO": ag.get("veiculo", ""), 
-                "MOTORISTA": ag.get("motorista", ""),
-                "Nº NF": ag.get("nf", ""), 
-                "VOLUME": vol_formatado, 
-                "PRODUTO": ag.get("produto", ""), 
-                "NOME DO ARQUIVO": ag.get("arquivo_nome", "")
-            })
-        st.dataframe(pd.DataFrame(registros_m1), use_container_width=True, hide_index=True)
+        # Criando a estrutura horizontal no Módulo 1 para permitir o botão que abre o PDF anexado
+        pesos_m1 = [1.0, 1.0, 1.5, 1.0, 1.0, 1.5, 1.0, 1.0, 1.0, 1.2]
+        
+        c_m1 = st.columns(pesos_m1)
+        c_m1[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
+        c_m1[1].markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
+        c_m1[2].markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
+        c_m1[3].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
+        c_m1[4].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
+        c_m1[5].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
+        c_m1[6].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
+        c_m1[7].markdown('<div class="tabela-header">VOLUME</div>', unsafe_allow_html=True)
+        c_m1[8].markdown('<div class="tabela-header">PRODUTO</div>', unsafe_allow_html=True)
+        c_m1[9].markdown('<div class="tabela-header">NF (PDF)</div>', unsafe_allow_html=True)
+        
+        for idx, ag in enumerate(st.session_state.db_agendamentos):
+            l_m1 = st.columns(pesos_m1)
+            l_m1[0].markdown(f'<div class="tabela-linha">{ag.get("balsa")}</div>', unsafe_allow_html=True)
+            l_m1[1].markdown(f'<div class="tabela-linha">{ag.get("data")}</div>', unsafe_allow_html=True)
+            l_m1[2].markdown(f'<div class="tabela-linha">{ag.get("janela")}</div>', unsafe_allow_html=True)
+            l_m1[3].markdown(f'<div class="tabela-linha">{ag.get("placa")}</div>', unsafe_allow_html=True)
+            l_m1[4].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
+            l_m1[5].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
+            l_m1[6].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
+            l_m1[7].markdown(f'<div class="tabela-linha">{float(ag.get("volume", 0)):.2f}</div>', unsafe_allow_html=True)
+            l_m1[8].markdown(f'<div class="tabela-linha">{ag.get("produto")}</div>', unsafe_allow_html=True)
+            
+            # Botão nativo para baixar/abrir o PDF real enviado pela FS
+            l_m1[9].download_button(
+                label="📄 Abrir NF",
+                data=ag.get("conteudo_bytes", b""),
+                file_name=ag.get("arquivo_nome", "Nota_Fiscal.pdf"),
+                mime="application/pdf",
+                key=f"m1_pdf_view_{idx}",
+                use_container_width=True
+            )
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (VISÃO HORIZONTAL CORRIGIDA)
+# MÓDULO 2: PORTAL DE AGENDAMENTO (VISÃO HORIZONTAL COM EDICÃO)
 # =================================================================================
 with aba2:
     col_cadastro, col_tabela_fs = st.columns([1, 2.5])
@@ -204,6 +222,7 @@ with aba2:
             with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01)
             with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO").upper()
                 
+            # Upload do PDF pela FS
             arq_upload = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL EM PDF)", type=["pdf"])
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
@@ -217,26 +236,31 @@ with aba2:
                 else:
                     st.session_state.ofertas[index_janela]['cotas_o'] += 1
                     janela_limpa = st.session_state.ofertas[index_janela]['horario']
-                    nome_documento = arq_upload.name if arq_upload is not None else "N/A"
+                    
+                    # Captura o binário do PDF real enviado
+                    if arq_upload is not None:
+                        nome_documento = arq_upload.name
+                        binario_doc = arq_upload.read()
+                    else:
+                        nome_documento = f"Nota_{nf_in}.pdf"
+                        binario_doc = b"%PDF-1.4 ... (Sem arquivo enviado)"
                     
                     novo_id = len(st.session_state.db_agendamentos)
                     st.session_state.db_agendamentos.append({
                         "id": novo_id, "balsa": "SD II", "data": "12/06/2026", "janela": janela_limpa,
                         "placa": placa_in, "veiculo": veiculo_in, "motorista": motorista_in,
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
-                        "arquivo_nome": nome_documento
+                        "arquivo_nome": nome_documento, "conteudo_bytes": binario_doc
                     })
-                    st.success("✅ Agendamento registrado com sucesso!")
+                    st.success("✅ Agendamento registrado!")
                     st.rerun()
 
-    # VISÃO HORIZONTAL - DEFINIÇÃO FIXA DE PROPORÇÕES
+    # VISÃO HORIZONTAL COM BOTÕES DE EDIÇÃO (MÓDULO 2)
     with col_tabela_fs:
         st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS FS (Visão de Tabela Horizontal)</div>', unsafe_allow_html=True)
         
-        # Grid de proporção estrita: 9 blocos com tamanho [1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.2, 1.0]
         pesos_colunas = [1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.2, 1.0]
         
-        # Cabeçalho da Tabela
         c = st.columns(pesos_colunas)
         c[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
         c[1].markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
@@ -248,17 +272,9 @@ with aba2:
         c[7].markdown('<div class="tabela-header">VOLUME</div>', unsafe_allow_html=True)
         c[8].markdown('<div class="tabela-header">AÇÃO</div>', unsafe_allow_html=True)
         
-        # Linhas de Dados
         for idx, ag in enumerate(st.session_state.db_agendamentos):
             l = st.columns(pesos_colunas)
             
-            # Tratamento seguro para amostragem do volume na tabela
-            try:
-                v_exibicao = f"{float(ag.get('volume', 0)):.2f}"
-            except:
-                v_exibicao = str(ag.get('volume', '0.00'))
-
-            # Se estiver em modo de edição
             if st.session_state.editando_id == ag["id"]:
                 balsa_ed = l[0].text_input("Balsa", value=ag["balsa"], key=f"b_ed_{idx}", label_visibility="collapsed")
                 data_ed = l[1].text_input("Data", value=ag["data"], key=f"d_ed_{idx}", label_visibility="collapsed")
@@ -267,15 +283,9 @@ with aba2:
                 veiculo_ed = l[4].text_input("Veículo", value=ag["veiculo"], key=f"v_ed_{idx}", label_visibility="collapsed").upper()
                 motorista_ed = l[5].text_input("Motorista", value=ag["motorista"], key=f"m_ed_{idx}", label_visibility="collapsed").upper()
                 nf_ed = l[6].text_input("NF", value=ag["nf"], key=f"n_ed_{idx}", label_visibility="collapsed")
+                volume_ed = l[7].number_input("Vol", value=float(ag["volume"]), key=f"vo_ed_{idx}", label_visibility="collapsed", step=0.01)
                 
-                try:
-                    v_inicial = float(ag["volume"])
-                except:
-                    v_inicial = 0.0
-                volume_ed = l[7].number_input("Vol", value=v_inicial, key=f"vo_ed_{idx}", label_visibility="collapsed", step=0.01)
-                
-                # Botão de Disquete para Salvar
-                if l[8].button("💾", key=f"btn_salvar_{idx}", use_container_width=True, help="Salvar Alterações"):
+                if l[8].button("💾", key=f"btn_salvar_{idx}", use_container_width=True):
                     st.session_state.db_agendamentos[idx].update({
                         "balsa": balsa_ed, "data": data_ed, "janela": janela_ed,
                         "placa": placa_ed, "veiculo": veiculo_ed, "motorista": motorista_ed,
@@ -285,7 +295,6 @@ with aba2:
                     st.toast("Alterações salvas!")
                     st.rerun()
                     
-            # Modo de visualização convencional
             else:
                 l[0].markdown(f'<div class="tabela-linha">{ag.get("balsa")}</div>', unsafe_allow_html=True)
                 l[1].markdown(f'<div class="tabela-linha">{ag.get("data")}</div>', unsafe_allow_html=True)
@@ -294,9 +303,8 @@ with aba2:
                 l[4].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
                 l[5].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
                 l[6].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
-                l[7].markdown(f'<div class="tabela-linha">{v_exibicao}</div>', unsafe_allow_html=True)
+                l[7].markdown(f'<div class="tabela-linha">{float(ag.get("volume", 0)):.2f}</div>', unsafe_allow_html=True)
                 
-                # Botão de Canetinha para Editar
-                if l[8].button("✏️", key=f"btn_editar_{idx}", use_container_width=True, help="Editar Registro"):
+                if l[8].button("✏️", key=f"btn_editar_{idx}", use_container_width=True):
                     st.session_state.editando_id = ag["id"]
                     st.rerun()
