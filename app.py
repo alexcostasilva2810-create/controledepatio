@@ -36,7 +36,7 @@ BALSAS_OPERACIONAIS = {
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, 
     "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
+    "SD XXI": {"capacidade": "2998.8 m³", "qs_meta": 49}, 
     "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
     "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
@@ -70,12 +70,14 @@ if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        caminho_imagem = "Gemini_Generated_Image_mz1weumz1weumz1w.png"
         
-        if os.path.exists(caminia_imagem := caminho_imagem):
-            st.image(caminho_imagem, use_container_width=True)
-        else:
+        # Tratamento seguro de exibição de imagem de fundo do login
+        if os.path.exists("Gemini_Generated_Image_mz1weumz1weumz1w.png"):
+            st.image("Gemini_Generated_Image_mz1weumz1weumz1w.png", use_container_width=True)
+        elif os.path.exists("image_12249a.png"):
             st.image("image_12249a.png", use_container_width=True)
+        else:
+            st.markdown("<h2 style='text-align:center; color:#0B192C;'>🔒 ACESSO AO SISTEMA</h2>", unsafe_allow_html=True)
             
         with st.container(border=True):
             user = st.text_input("Usuário / Funcionário")
@@ -173,7 +175,7 @@ def salvar_agendamento_modulo2():
         "produto": st.session_state.get("m2_produto", "").upper(),
         "chegada_efetiva": None,
         "status_chegada": "Aguardando",
-        "fluxo_patio": "AGUARDANDO"  # Status inicial do Módulo 4
+        "fluxo_patio": "AGUARDANDO"
     })
     
     st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
@@ -407,7 +409,8 @@ with aba2:
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
             
-            chave_botao_unica = f"download_btn_key_{ag['id']}_{idx}"
+            # CHAVE CORRIGIDA: Evita o erro de chave duplicada adicionando prefixo limpo com ID único
+            chave_botao_unica = f"qr_down_{ag['id']}"
             l[7].download_button(
                 label="📄 Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
                 mime="image/png", key=chave_botao_unica, use_container_width=True
@@ -429,7 +432,7 @@ with aba3:
                     linhas = codigo_scaneado.split("\n")
                     id_localizado = None
                     for linha in linhas:
-                        if "ID:" in line := linha:
+                        if "ID:" in linha:
                             id_localizado = int(linha.split(":")[1].strip())
                             break
                     if id_localizado is None:
@@ -505,7 +508,6 @@ with aba3:
 with aba4:
     st.markdown('<div class="section-header-container">📋 Monitoramento e Transição de Status de Pátio / Posto</div>', unsafe_allow_html=True)
     
-    # Índices de Cards Resumos
     total_m4 = len(st.session_state.db_agendamentos)
     c_aguardando = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "AGUARDANDO"])
     c_transito = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "TRANSITO"])
@@ -521,7 +523,6 @@ with aba4:
     
     st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
     
-    # Largura de colunas calculadas para comportar dados + botões de mudança de estágio
     pesos_m4 = [0.7, 1.2, 1.3, 0.9, 0.9, 1.0, 1.2, 0.8, 1.3, 1.4]
     
     c_m4 = st.columns(pesos_m4)
@@ -552,7 +553,6 @@ with aba4:
         l_m4[6].markdown(f'<div class="tabela-linha">{ag.get("transportadora", "N/I")}</div>', unsafe_allow_html=True)
         l_m4[7].markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
         
-        # Obtenção do status do fluxo com cores customizadas por inteligência visual
         st_atual = ag.get("fluxo_patio", "AGUARDANDO")
         if st_atual == "AGUARDANDO":
             cor_txt = "#D97706"
@@ -569,8 +569,8 @@ with aba4:
             
         l_m4[8].markdown(f'<div class="tabela-linha" style="color:{cor_txt}; font-weight:bold;">{f_label}</div>', unsafe_allow_html=True)
         
-        # Botão de Transição Rápida de Estados (Pipeline Logístico)
-        btn_key = f"btn_fluxo_{ag['id']}_{idx_m4}"
+        # CHAVE CORRIGIDA: Evita colisões e erros ao mudar estados usando chaves dinâmicas baseadas no ID real
+        btn_key = f"btn_fluxo_{ag['id']}"
         
         if st_atual == "AGUARDANDO":
             if l_m4[9].button("Liberar p/ Posto ➡️", key=btn_key, use_container_width=True):
