@@ -55,7 +55,6 @@ st.markdown("""
         font-weight: bold;
         padding: 10px;
     }
-    /* Estilo para simular o cabeçalho de tabela no Módulo 2 */
     .tabela-header {
         background-color: #F1F3F5;
         font-weight: bold;
@@ -154,10 +153,23 @@ with aba1:
     if st.session_state.db_agendamentos:
         registros_m1 = []
         for ag in st.session_state.db_agendamentos:
+            # Tratamento para garantir que o volume não quebre a tabela do Módulo 1
+            try:
+                vol_formatado = f"{float(ag.get('volume', 0)):.2f} m³"
+            except:
+                vol_formatado = f"{ag.get('volume')} m³"
+                
             registros_m1.append({
-                "BALSA": ag["balsa"], "DATA": ag["data"], "HORÁRIO": ag["janela"],
-                "PLACA": ag["placa"], "VEÍCULO": ag["veiculo"], "MOTORISTA": ag["motorista"],
-                "Nº NF": ag["nf"], "VOLUME": f"{float(ag['volume']):.2f} m³", "PRODUTO": ag["produto"], "NOME DO ARQUIVO": ag["arquivo_nome"]
+                "BALSA": ag.get("balsa", ""), 
+                "DATA": ag.get("data", ""), 
+                "HORÁRIO": ag.get("janela", ""),
+                "PLACA": ag.get("placa", ""), 
+                "VEÍCULO": ag.get("veiculo", ""), 
+                "MOTORISTA": ag.get("motorista", ""),
+                "Nº NF": ag.get("nf", ""), 
+                "VOLUME": vol_formatado, 
+                "PRODUTO": ag.get("produto", ""), 
+                "NOME DO ARQUIVO": ag.get("arquivo_nome", "")
             })
         st.dataframe(pd.DataFrame(registros_m1), use_container_width=True, hide_index=True)
 
@@ -165,7 +177,6 @@ with aba1:
 # MÓDULO 2: PORTAL DE AGENDAMENTO (VISÃO HORIZONTAL CORRIGIDA)
 # =================================================================================
 with aba2:
-    # Mantemos o formulário de cadastro no topo ou na lateral esquerda
     col_cadastro, col_tabela_fs = st.columns([1, 2.5])
     
     with col_cadastro:
@@ -215,64 +226,77 @@ with aba2:
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
                         "arquivo_nome": nome_documento
                     })
-                    st.success("✅ Agendamento registrado!")
+                    st.success("✅ Agendamento registrado com sucesso!")
                     st.rerun()
 
-    # CONFIGURAÇÃO VISUAL EM TABELA HORIZONTAL SOLICITADA
+    # VISÃO HORIZONTAL - DEFINIÇÃO FIXA DE PROPORÇÕES
     with col_tabela_fs:
         st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS FS (Visão de Tabela Horizontal)</div>', unsafe_allow_html=True)
         
-        # Desenho do Cabeçalho da Tabela
-        c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns([1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.4, 1.2])
-        c1.markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
-        c2.markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
-        c3.markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
-        c4.markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
-        c5.markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
-        c6.markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
-        c7.markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
-        c8.markdown('<div class="tabela-header">VOLUME</div>', unsafe_allow_html=True)
-        c9.markdown('<div class="tabela-header">AÇÃO</div>', unsafe_allow_html=True)
+        # Grid de proporção estrita: 9 blocos com tamanho [1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.2, 1.0]
+        pesos_colunas = [1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.2, 1.0]
         
-        # Renderização das Linhas da Tabela
+        # Cabeçalho da Tabela
+        c = st.columns(pesos_colunas)
+        c[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
+        c[1].markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
+        c[2].markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
+        c[3].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
+        c[4].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
+        c[5].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
+        c[6].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
+        c[7].markdown('<div class="tabela-header">VOLUME</div>', unsafe_allow_html=True)
+        c[8].markdown('<div class="tabela-header">AÇÃO</div>', unsafe_allow_html=True)
+        
+        # Linhas de Dados
         for idx, ag in enumerate(st.session_state.db_agendamentos):
-            # Cria um escopo de colunas para cada linha de registro
-            l1, l2, l3, l4, l5, l6, l7, l8, l9 = st.columns([1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.4, 1.2])
+            l = st.columns(pesos_colunas)
             
-            # Modo de Edição Ativo para esta linha específica
+            # Tratamento seguro para amostragem do volume na tabela
+            try:
+                v_exibicao = f"{float(ag.get('volume', 0)):.2f}"
+            except:
+                v_exibicao = str(ag.get('volume', '0.00'))
+
+            # Se estiver em modo de edição
             if st.session_state.editando_id == ag["id"]:
-                balsa_ed = l1.text_input("Balsa", value=ag["balsa"], key=f"b_ed_{idx}", label_visibility="collapsed")
-                data_ed = l2.text_input("Data", value=ag["data"], key=f"d_ed_{idx}", label_visibility="collapsed")
-                janela_ed = l3.text_input("Janela", value=ag["janela"], key=f"j_ed_{idx}", label_visibility="collapsed")
-                placa_ed = l4.text_input("Placa", value=ag["placa"], key=f"p_ed_{idx}", label_visibility="collapsed").upper()
-                veiculo_ed = l5.text_input("Veículo", value=ag["veiculo"], key=f"v_ed_{idx}", label_visibility="collapsed").upper()
-                motorista_ed = l6.text_input("Motorista", value=ag["motorista"], key=f"m_ed_{idx}", label_visibility="collapsed").upper()
-                nf_ed = l7.text_input("NF", value=ag["nf"], key=f"n_ed_{idx}", label_visibility="collapsed")
-                volume_ed = l8.number_input("Vol", value=float(ag["volume"]), key=f"vo_ed_{idx}", label_visibility="collapsed", step=0.01)
+                balsa_ed = l[0].text_input("Balsa", value=ag["balsa"], key=f"b_ed_{idx}", label_visibility="collapsed")
+                data_ed = l[1].text_input("Data", value=ag["data"], key=f"d_ed_{idx}", label_visibility="collapsed")
+                janela_ed = l[2].text_input("Janela", value=ag["janela"], key=f"j_ed_{idx}", label_visibility="collapsed")
+                placa_ed = l[3].text_input("Placa", value=ag["placa"], key=f"p_ed_{idx}", label_visibility="collapsed").upper()
+                veiculo_ed = l[4].text_input("Veículo", value=ag["veiculo"], key=f"v_ed_{idx}", label_visibility="collapsed").upper()
+                motorista_ed = l[5].text_input("Motorista", value=ag["motorista"], key=f"m_ed_{idx}", label_visibility="collapsed").upper()
+                nf_ed = l[6].text_input("NF", value=ag["nf"], key=f"n_ed_{idx}", label_visibility="collapsed")
                 
-                # Botão do Disquete para Salvar
-                if l9.button("💾", key=f"btn_salvar_{idx}", use_container_width=True, help="Salvar Alterações"):
+                try:
+                    v_inicial = float(ag["volume"])
+                except:
+                    v_inicial = 0.0
+                volume_ed = l[7].number_input("Vol", value=v_inicial, key=f"vo_ed_{idx}", label_visibility="collapsed", step=0.01)
+                
+                # Botão de Disquete para Salvar
+                if l[8].button("💾", key=f"btn_salvar_{idx}", use_container_width=True, help="Salvar Alterações"):
                     st.session_state.db_agendamentos[idx].update({
                         "balsa": balsa_ed, "data": data_ed, "janela": janela_ed,
                         "placa": placa_ed, "veiculo": veiculo_ed, "motorista": motorista_ed,
                         "nf": nf_ed, "volume": volume_ed
                     })
                     st.session_state.editando_id = None
-                    st.toast("Alterações salvas com sucesso!")
+                    st.toast("Alterações salvas!")
                     st.rerun()
                     
-            # Modo de Visualização Normal
+            # Modo de visualização convencional
             else:
-                l1.markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
-                l2.markdown(f'<div class="tabela-linha">{ag["data"]}</div>', unsafe_allow_html=True)
-                l3.markdown(f'<div class="tabela-linha">{ag["janela"]}</div>', unsafe_allow_html=True)
-                l4.markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
-                l5.markdown(f'<div class="tabela-linha">{ag["veiculo"]}</div>', unsafe_allow_html=True)
-                l6.markdown(f'<div class="tabela-linha">{ag["motorista"]}</div>', unsafe_allow_html=True)
-                l7.markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
-                l8.markdown(f'<div class="tabela-linha">{float(ag["volume"]):.2f}</div>', unsafe_allow_html=True)
+                l[0].markdown(f'<div class="tabela-linha">{ag.get("balsa")}</div>', unsafe_allow_html=True)
+                l[1].markdown(f'<div class="tabela-linha">{ag.get("data")}</div>', unsafe_allow_html=True)
+                l[2].markdown(f'<div class="tabela-linha">{ag.get("janela")}</div>', unsafe_allow_html=True)
+                l[3].markdown(f'<div class="tabela-linha">{ag.get("placa")}</div>', unsafe_allow_html=True)
+                l[4].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
+                l[5].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
+                l[6].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
+                l[7].markdown(f'<div class="tabela-linha">{v_exibicao}</div>', unsafe_allow_html=True)
                 
-                # Botão da Canetinha para Editar
-                if l9.button("✏️", key=f"btn_editar_{idx}", use_container_width=True, help="Editar Registro"):
+                # Botão de Canetinha para Editar
+                if l[8].button("✏️", key=f"btn_editar_{idx}", use_container_width=True, help="Editar Registro"):
                     st.session_state.editando_id = ag["id"]
                     st.rerun()
