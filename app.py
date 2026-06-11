@@ -68,8 +68,8 @@ if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        # Imagem atualizada conforme solicitado
-        st.image("https://raw.githubusercontent.com/alexcostasilva2810-create/controledepatio/main/image_591a5c.jpg", use_container_width=True)
+        # Link hospedado direto no Postimages para garantir o carregamento
+        st.image("https://i.postimg.cc/9F4GfXm1/image-1282ce.jpg", use_container_width=True)
         with st.container(border=True):
             user = st.text_input("Usuário / Funcionário")
             password = st.text_input("Senha de Acesso", type="password")
@@ -166,7 +166,7 @@ with aba1:
         cts_meta_original = BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"]
         
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
-        data_vigencia = st.date_input("Data de Vigilência", datetime(2026, 6, 12), key="m1_data")
+        data_vigencia = st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data")
         
         st.markdown("**Período de Chegada na ETC:**")
         c_hora_ini, c_hora_fim = st.columns(2)
@@ -354,7 +354,7 @@ with aba3:
                 try:
                     linhas = codigo_scaneado.split("\n")
                     id_localizado = None
-                    for linha in lines:
+                    for linha in linhas:
                         if "ID:" in linha:
                             id_localizado = int(linha.split(":")[1].strip())
                             break
