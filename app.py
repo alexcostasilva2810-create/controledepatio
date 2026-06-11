@@ -55,41 +55,29 @@ st.markdown("""
         font-weight: bold;
         padding: 10px;
     }
+    /* Estilo para simular o cabeçalho de tabela no Módulo 2 */
+    .tabela-header {
+        background-color: #F1F3F5;
+        font-weight: bold;
+        padding: 8px;
+        border-bottom: 2px solid #CED4DA;
+        text-align: center;
+        font-size: 12px;
+    }
+    .tabela-linha {
+        padding: 6px;
+        border-bottom: 1px solid #DEE2E6;
+        text-align: center;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------------
-# 3. GERADOR DE COMPROVANTE BACKUP (CASO NÃO FAÇA UPLOAD)
-# ---------------------------------------------------------------------------------
-def gerar_texto_comprovante(balsa, data, janela, placa, veiculo, motorista, nf, volume, produto):
-    texto = f"""==================================================
-ZION TECNOLOGIA - COMPROVANTE DE AGENDAMENTO
-Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
-==================================================
-
-1. DADOS DA PROGRAMAÇÃO LOGÍSTICA
---------------------------------------------------
-Embarcação / Balsa: {balsa}
-Data da Operação: {data}
-Janela Horária: {janela}
-
-2. INFORMAÇÕES DO VEÍCULO E CARGA
---------------------------------------------------
-Motorista: {motorista}
-Produto: {produto}
-Placa: {placa}
-Veículo: {veiculo}
-Nº Nota Fiscal: {nf}
-Volume Cadastrado: {float(volume):.2f} m³
-
---------------------------------------------------
-Documento de controle de pátio interno
-Validação de Portaria ZION
-=================================================="""
-    return texto.encode("utf-8")
-
-# ---------------------------------------------------------------------------------
-# 4. BANCO DE DADOS EM MEMÓRIA (SESSION STATE - CORRIGIDO)
+# 3. BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
 # ---------------------------------------------------------------------------------
 if "ofertas" not in st.session_state:
     st.session_state.ofertas = [
@@ -98,7 +86,7 @@ if "ofertas" not in st.session_state:
         {"id": 3, "horario": "08:00 às 09:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 4, "horario": "09:00 às 10:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 5, "horario": "10:00 às 11:00", "vagas_o": 2, "cotas_o": 0},
-        {"id": 6, "horario": "11:00 às 12:00", "vagas_o": 2, "cotas_o": 0},  # CORRIGIDO AQUI
+        {"id": 6, "horario": "11:00 às 12:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 7, "horario": "12:00 às 13:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 8, "horario": "13:00 às 14:00", "vagas_o": 2, "cotas_o": 0},
     ]
@@ -106,12 +94,14 @@ if "ofertas" not in st.session_state:
 if "db_agendamentos" not in st.session_state:
     st.session_state.db_agendamentos = [
         {
-            "balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00",
+            "id": 0, "balsa": "SD II", "data": "12/06/2026", "janela": "06:00 às 07:00",
             "placa": "JVV-7606", "veiculo": "BITREN", "motorista": "JOSE FRANCISCO",
-            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", "arquivo_nome": "Exemplo_NF.txt",
-            "conteudo_bytes": b"Arquivo Inicial de Teste da Portaria"
+            "nf": "154639", "volume": 51000.00, "produto": "ANIDRO", "arquivo_nome": "Exemplo_NF.pdf"
         }
     ]
+
+if "editando_id" not in st.session_state:
+    st.session_state.editando_id = None
 
 # Cabeçalho do Painel
 st.markdown("""
@@ -127,7 +117,7 @@ aba1, aba2 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: GESTÃO DE DISPONIBILIDADE (PORTARIA)
+# MÓDULO 1: GESTÃO DE DISPONIBILIDADE
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1, 2])
@@ -151,7 +141,6 @@ with aba1:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Linha Verde = Esgotado)</div>', unsafe_allow_html=True)
     
-    # Monta o DataFrame com todas as ofertas com segurança
     df_of = pd.DataFrame(st.session_state.ofertas)
     df_of.columns = ['IDENTIFICADOR', 'HORÁRIO DE ATENDIMENTO', 'VAGAS OFERTADAS', 'COTAS OCUPADAS']
     df_of['VAGAS DISPONÍVEIS'] = df_of['VAGAS OFERTADAS'] - df_of['COTAS OCUPADAS']
@@ -170,27 +159,17 @@ with aba1:
                 "PLACA": ag["placa"], "VEÍCULO": ag["veiculo"], "MOTORISTA": ag["motorista"],
                 "Nº NF": ag["nf"], "VOLUME": f"{float(ag['volume']):.2f} m³", "PRODUTO": ag["produto"], "NOME DO ARQUIVO": ag["arquivo_nome"]
             })
-        
-        col_tabela, col_botoes = st.columns([5.1, 0.9])
-        with col_tabela:
-            st.dataframe(pd.DataFrame(registros_m1), use_container_width=True, hide_index=True)
-        with col_botoes:
-            for idx, ag in enumerate(st.session_state.db_agendamentos):
-                st.download_button(
-                    label="📄 Ver NF",
-                    data=ag["conteudo_bytes"],
-                    file_name=ag["arquivo_nome"],
-                    key=f"m1_down_{idx}",
-                    use_container_width=True
-                )
+        st.dataframe(pd.DataFrame(registros_m1), use_container_width=True, hide_index=True)
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS COM UPLOAD COMPLETAMENTE SEGURO)
+# MÓDULO 2: PORTAL DE AGENDAMENTO (VISÃO HORIZONTAL CORRIGIDA)
 # =================================================================================
 with aba2:
-    col_cadastro, col_cards = st.columns([1, 1.3])
+    # Mantemos o formulário de cadastro no topo ou na lateral esquerda
+    col_cadastro, col_tabela_fs = st.columns([1, 2.5])
+    
     with col_cadastro:
-        st.markdown('<div class="section-header-container">📝 Formulário de Agendamento Logístico</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header-container">📝 Novo Agendamento Logístico</div>', unsafe_allow_html=True)
         with st.form("form_novo_agendamento", clear_on_submit=True):
             st.selectbox("1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO", ["SD II - Vigência: 12/06/2026"])
             
@@ -214,9 +193,7 @@ with aba2:
             with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01)
             with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO").upper()
                 
-            # Campo de upload do PDF da Nota Fiscal preservado e ativo
-            arq_upload = st.file_uploader("ARQUIVO (FAZER UPLOAD DA NOTA FISCAL EM PDF)", type=["pdf", "png", "jpg", "txt"])
-            
+            arq_upload = st.file_uploader("ARQUIVO (ANEXAR NOTA FISCAL EM PDF)", type=["pdf"])
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
             if submetido:
@@ -227,45 +204,75 @@ with aba2:
                 if vagas_restantes <= 0:
                     st.error("❌ Erro: Esta janela horária está esgotada!")
                 else:
-                    # Executa o abatimento da cota ocupada
                     st.session_state.ofertas[index_janela]['cotas_o'] += 1
                     janela_limpa = st.session_state.ofertas[index_janela]['horario']
+                    nome_documento = arq_upload.name if arq_upload is not None else "N/A"
                     
-                    # Salva o arquivo real feito upload ou gera um arquivo texto identificador
-                    if arq_upload is not None:
-                        nome_documento = arq_upload.name
-                        binario_doc = arq_upload.read()
-                    else:
-                        nome_documento = f"Comprovante_NF_{nf_in}.txt"
-                        binario_doc = gerar_texto_comprovante("SD II", "12/06/2026", janela_limpa, placa_in, veiculo_in, motorista_in, nf_in, volume_in, produto_in)
-                    
+                    novo_id = len(st.session_state.db_agendamentos)
                     st.session_state.db_agendamentos.append({
-                        "balsa": "SD II", "data": "12/06/2026", "janela": janela_limpa,
+                        "id": novo_id, "balsa": "SD II", "data": "12/06/2026", "janela": janela_limpa,
                         "placa": placa_in, "veiculo": veiculo_in, "motorista": motorista_in,
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
-                        "arquivo_nome": nome_documento, "conteudo_bytes": binario_doc
+                        "arquivo_nome": nome_documento
                     })
-                    st.success("✅ Agendamento registrado e vaga debitada!")
+                    st.success("✅ Agendamento registrado!")
                     st.rerun()
 
-    with col_cards:
-        st.markdown('<div class="section-header-container">📜 Comprovantes e Notas Fiscais Emitidas</div>', unsafe_allow_html=True)
-        if st.session_state.db_agendamentos:
-            for idx, ag in enumerate(st.session_state.db_agendamentos):
-                st.markdown(f"""
-                <div style="background-color: #F8F9FA; border-left: 4px solid #007BFF; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
-                    <span style="float: right; font-size: 11px; color: #6C757D;">📋 Registro #{idx+1}</span>
-                    <p style="margin: 0 0 4px 0; font-size: 13px;"><b>BALSA:</b> {ag.get('balsa')} | <b>DATA:</b> {ag.get('data')} | <b>HORÁRIO:</b> {ag.get('janela')}</p>
-                    <p style="margin: 0 0 4px 0; font-size: 13px;"><b>PLACA:</b> {ag.get('placa')} | <b>MOTORISTA:</b> {ag.get('motorista')}</p>
-                    <p style="margin: 0; font-size: 13px;"><b>Nº NF:</b> {ag.get('nf')} | <b>ARQUIVO salvo:</b> {ag.get('arquivo_nome')}</p>
-                </div>
-                """, unsafe_allow_html=True)
+    # CONFIGURAÇÃO VISUAL EM TABELA HORIZONTAL SOLICITADA
+    with col_tabela_fs:
+        st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS FS (Visão de Tabela Horizontal)</div>', unsafe_allow_html=True)
+        
+        # Desenho do Cabeçalho da Tabela
+        c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns([1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.4, 1.2])
+        c1.markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
+        c2.markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
+        c3.markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
+        c4.markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
+        c5.markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
+        c6.markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
+        c7.markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
+        c8.markdown('<div class="tabela-header">VOLUME</div>', unsafe_allow_html=True)
+        c9.markdown('<div class="tabela-header">AÇÃO</div>', unsafe_allow_html=True)
+        
+        # Renderização das Linhas da Tabela
+        for idx, ag in enumerate(st.session_state.db_agendamentos):
+            # Cria um escopo de colunas para cada linha de registro
+            l1, l2, l3, l4, l5, l6, l7, l8, l9 = st.columns([1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.4, 1.2])
+            
+            # Modo de Edição Ativo para esta linha específica
+            if st.session_state.editando_id == ag["id"]:
+                balsa_ed = l1.text_input("Balsa", value=ag["balsa"], key=f"b_ed_{idx}", label_visibility="collapsed")
+                data_ed = l2.text_input("Data", value=ag["data"], key=f"d_ed_{idx}", label_visibility="collapsed")
+                janela_ed = l3.text_input("Janela", value=ag["janela"], key=f"j_ed_{idx}", label_visibility="collapsed")
+                placa_ed = l4.text_input("Placa", value=ag["placa"], key=f"p_ed_{idx}", label_visibility="collapsed").upper()
+                veiculo_ed = l5.text_input("Veículo", value=ag["veiculo"], key=f"v_ed_{idx}", label_visibility="collapsed").upper()
+                motorista_ed = l6.text_input("Motorista", value=ag["motorista"], key=f"m_ed_{idx}", label_visibility="collapsed").upper()
+                nf_ed = l7.text_input("NF", value=ag["nf"], key=f"n_ed_{idx}", label_visibility="collapsed")
+                volume_ed = l8.number_input("Vol", value=float(ag["volume"]), key=f"vo_ed_{idx}", label_visibility="collapsed", step=0.01)
                 
-                st.download_button(
-                    label=f"📄 Baixar {ag.get('arquivo_nome')}",
-                    data=ag.get("conteudo_bytes", b""),
-                    file_name=ag.get("arquivo_nome"),
-                    key=f"m2_dw_{idx}",
-                    use_container_width=True
-                )
-                st.markdown("<br>", unsafe_allow_html=True)
+                # Botão do Disquete para Salvar
+                if l9.button("💾", key=f"btn_salvar_{idx}", use_container_width=True, help="Salvar Alterações"):
+                    st.session_state.db_agendamentos[idx].update({
+                        "balsa": balsa_ed, "data": data_ed, "janela": janela_ed,
+                        "placa": placa_ed, "veiculo": veiculo_ed, "motorista": motorista_ed,
+                        "nf": nf_ed, "volume": volume_ed
+                    })
+                    st.session_state.editando_id = None
+                    st.toast("Alterações salvas com sucesso!")
+                    st.rerun()
+                    
+            # Modo de Visualização Normal
+            else:
+                l1.markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
+                l2.markdown(f'<div class="tabela-linha">{ag["data"]}</div>', unsafe_allow_html=True)
+                l3.markdown(f'<div class="tabela-linha">{ag["janela"]}</div>', unsafe_allow_html=True)
+                l4.markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
+                l5.markdown(f'<div class="tabela-linha">{ag["veiculo"]}</div>', unsafe_allow_html=True)
+                l6.markdown(f'<div class="tabela-linha">{ag["motorista"]}</div>', unsafe_allow_html=True)
+                l7.markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
+                l8.markdown(f'<div class="tabela-linha">{float(ag["volume"]):.2f}</div>', unsafe_allow_html=True)
+                
+                # Botão da Canetinha para Editar
+                if l9.button("✏️", key=f"btn_editar_{idx}", use_container_width=True, help="Editar Registro"):
+                    st.session_state.editando_id = ag["id"]
+                    st.rerun()
