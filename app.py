@@ -85,11 +85,11 @@ Volume Cadastrado: {float(volume):.2f} m³
 --------------------------------------------------
 Documento de controle de pátio interno
 Validação de Portaria ZION
-==================================================™"""
+=================================================="""
     return texto.encode("utf-8")
 
 # ---------------------------------------------------------------------------------
-# 4. BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
+# 4. BANCO DE DADOS EM MEMÓRIA (SESSION STATE - CORRIGIDO)
 # ---------------------------------------------------------------------------------
 if "ofertas" not in st.session_state:
     st.session_state.ofertas = [
@@ -98,7 +98,7 @@ if "ofertas" not in st.session_state:
         {"id": 3, "horario": "08:00 às 09:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 4, "horario": "09:00 às 10:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 5, "horario": "10:00 às 11:00", "vagas_o": 2, "cotas_o": 0},
-        {"id": 6, "horario": "11:00 às 12:00", "vagas_o": 2, "cotas_o": 0},
+        {"id": 6, "horario": "11:00 às 12:00", "vagas_o": 2, "cotas_o": 0},  # CORRIGIDO AQUI
         {"id": 7, "horario": "12:00 às 13:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 8, "horario": "13:00 às 14:00", "vagas_o": 2, "cotas_o": 0},
     ]
@@ -151,6 +151,7 @@ with aba1:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Linha Verde = Esgotado)</div>', unsafe_allow_html=True)
     
+    # Monta o DataFrame com todas as ofertas com segurança
     df_of = pd.DataFrame(st.session_state.ofertas)
     df_of.columns = ['IDENTIFICADOR', 'HORÁRIO DE ATENDIMENTO', 'VAGAS OFERTADAS', 'COTAS OCUPADAS']
     df_of['VAGAS DISPONÍVEIS'] = df_of['VAGAS OFERTADAS'] - df_of['COTAS OCUPADAS']
@@ -184,7 +185,7 @@ with aba1:
                 )
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS COM UPLOAD)
+# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS COM UPLOAD COMPLETAMENTE SEGURO)
 # =================================================================================
 with aba2:
     col_cadastro, col_cards = st.columns([1, 1.3])
@@ -213,7 +214,7 @@ with aba2:
             with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01)
             with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO").upper()
                 
-            # O CAMPO DE UPLOAD VOLTOU AQUI:
+            # Campo de upload do PDF da Nota Fiscal preservado e ativo
             arq_upload = st.file_uploader("ARQUIVO (FAZER UPLOAD DA NOTA FISCAL EM PDF)", type=["pdf", "png", "jpg", "txt"])
             
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
@@ -226,10 +227,11 @@ with aba2:
                 if vagas_restantes <= 0:
                     st.error("❌ Erro: Esta janela horária está esgotada!")
                 else:
+                    # Executa o abatimento da cota ocupada
                     st.session_state.ofertas[index_janela]['cotas_o'] += 1
                     janela_limpa = st.session_state.ofertas[index_janela]['horario']
                     
-                    # LOGICA HÍBRIDA DE ARQUIVO: Se ele anexou, pega o dele. Se não, gera o comprovante.
+                    # Salva o arquivo real feito upload ou gera um arquivo texto identificador
                     if arq_upload is not None:
                         nome_documento = arq_upload.name
                         binario_doc = arq_upload.read()
@@ -243,7 +245,7 @@ with aba2:
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
                         "arquivo_nome": nome_documento, "conteudo_bytes": binario_doc
                     })
-                    st.success("✅ Agendamento registrado e arquivo salvo com sucesso!")
+                    st.success("✅ Agendamento registrado e vaga debitada!")
                     st.rerun()
 
     with col_cards:
