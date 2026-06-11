@@ -78,6 +78,7 @@ if "ofertas" not in st.session_state:
         {"id": 8, "horario": "13:00 às 14:00", "vagas_o": 2, "cotas_o": 0},
     ]
 
+# CORREÇÃO CRÍTICA: Inicializando a base com todos os campos necessários para evitar KeyError
 if "db_agendamentos" not in st.session_state:
     st.session_state.db_agendamentos = [
         {
@@ -119,7 +120,7 @@ def calcular_status_atraso(janela_str, horario_chegada_dt):
         chegada_time = horario_chegada_dt.time()
         hoje = datetime.today()
         dt_limite = datetime.combine(hoje, hora_limite)
-        dt_chegada = datetime.combine(hoje, llegada_time if 'llegada_time' in locals() else chegada_time)
+        dt_chegada = datetime.combine(hoje, chegada_time)
         
         if dt_chegada > dt_limite:
             diferenca = dt_chegada - dt_limite
@@ -207,7 +208,7 @@ with aba1:
     st.dataframe(df_of.style.apply(lambda row: ['background-color: #D4EDDA; color: #155724; font-weight: bold;'] * len(row) if row['VAGAS DISPONÍVEIS'] <= 0 else [''] * len(row), axis=1), use_container_width=True, hide_index=True)
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (CÓDIGO CORRIGIDO AQUI)
+# MÓDULO 2: PORTAL DE AGENDAMENTO
 # =================================================================================
 with aba2:
     col_cadastro, col_tabela_fs = st.columns([1.1, 2.5])
@@ -240,8 +241,10 @@ with aba2:
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
             if submetido:
-                # LINHA 259 TOTALMENTE CORRIGIDA E ADAPTADA ABAIXO:
-                id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
+                # CORREÇÃO DA LINHA 259: Tratamento da extração limpa do ID da janela
+                partes_janela = janela_selecionada.split("#")
+                id_janela_sel = int(partes_janela[1].split(" ")[0])
+                
                 index_janela = next((index for (index, d) in enumerate(st.session_state.ofertas) if d["id"] == id_janela_sel), None)
                 vagas_restantes = st.session_state.ofertas[index_janela]['vagas_o'] - st.session_state.ofertas[index_janela]['cotas_o']
                 
@@ -308,7 +311,7 @@ with aba3:
     
     with col_scan:
         st.subheader("Simulador de Scanner de Celular")
-        codigo_scaneado = st.text_area("Cole aqui o texto lido pelo celular (ou digite o ID do agendamento):", 
+        codigo_scaneado = st.text_area("Cole aqui o texto lido pelo celular (or digite o ID do agendamento):", 
                                        placeholder="ID:100\nPLACA:JVV-7606...", height=100)
         
         if st.button("📥 PROCESSAR ENTRADA IMEDIATA", use_container_width=True):
@@ -328,7 +331,7 @@ with aba3:
                     
                     if idx_encontrado is not None:
                         ag_alvo = st.session_state.db_agendamentos[idx_encontrado]
-                        if ag_alvo["chegada_efetiva"] is None:
+                        if ag_alvo.get("chegada_efetiva") is None:
                             agora = datetime.now()
                             st.session_state.db_agendamentos[idx_encontrado]["chegada_efetiva"] = agora.strftime("%H:%M:%S")
                             st.session_state.db_agendamentos[idx_encontrado]["status_chegada"] = calcular_status_atraso(ag_alvo["janela"], agora)
@@ -343,7 +346,7 @@ with aba3:
 
     with col_manual:
         st.subheader("Check-in de Segurança Rápido")
-        veiculos_nao_recebidos = [ag for ag in st.session_state.db_agendamentos if ag["chegada_efetiva"] is None]
+        veiculos_nao_recebidos = [ag for ag in st.session_state.db_agendamentos if ag.get("chegada_efetiva") is None]
         if veiculos_nao_recebidos:
             selecionado_manual = st.selectbox("Selecione o veículo para dar entrada:", 
                                               options=[f"ID: {v['id']} | Placa: {v['placa']} - Mot: {v['motorista']}" for v in veiculos_nao_recebidos])
@@ -384,6 +387,6 @@ with aba3:
         hora_c = ag.get("chegada_efetiva") if ag.get("chegada_efetiva") else "--:--:--"
         l_m3[6].markdown(f'<div class="tabela-linha" style="font-weight:bold; color:#1E3A8A;">{hora_c}</div>', unsafe_allow_html=True)
         
-        status_c = ag.get("status_chegada")
+        status_c = ag.get("status_chegada") if ag.get("status_chegada") else "Aguardando"
         cor_status = "#334155" if "Aguardando" in status_c else ("#DC2626" if "Atrasado" in status_c else "#16A34A")
         l_m3[7].markdown(f'<div class="tabela-linha" style="color:{cor_status}; font-weight:bold;">{status_c}</div>', unsafe_allow_html=True)
