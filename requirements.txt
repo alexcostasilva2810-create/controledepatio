@@ -4,4 +4,4 @@ fpdf2
 Pillow
 gunicorn
 requests
-fpdf
+
