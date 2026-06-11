@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import qrcode
 from io import BytesIO
 import os
+import time
 
 # 1. CONFIGURAÇÃO DA PÁGINA (Sempre no topo)
 st.set_page_config(
@@ -14,7 +15,7 @@ st.set_page_config(
 )
 
 # =================================================================================
-# DICIONÁRIO DE BALSAS OPERACIONAIS ORIGINAL PROTEGIDO (Corrigido SD XIV)
+# DICIONÁRIO DE BALSAS OPERACIONAIS ORIGINAL PROTEGIDO
 # =================================================================================
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, 
@@ -26,10 +27,10 @@ BALSAS_OPERACIONAIS = {
     "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
     "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
-    "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD XI": {"capacidade": "2325.6 m³", "xmax_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
     "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, # Corrigido de cte_meta para cts_meta
+    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
     "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
@@ -69,17 +70,12 @@ if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        
         caminho_imagem = "Gemini_Generated_Image_mz1weumz1weumz1w.png"
         
         if os.path.exists(caminho_imagem):
             st.image(caminho_imagem, use_container_width=True)
         else:
-            caminho_alternativo = os.path.join(os.path.dirname(__file__), caminho_imagem)
-            if os.path.exists(caminho_alternativo):
-                st.image(caminho_alternativo, use_container_width=True)
-            else:
-                st.image("image_12249a.png", use_container_width=True)
+            st.image("image_12249a.png", use_container_width=True)
             
         with st.container(border=True):
             user = st.text_input("Usuário / Funcionário")
@@ -168,27 +164,21 @@ aba1, aba2, aba3 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: INTELIGÊNCIA DE CÁLCULO TOTALMENTE AUTOMÁTICO
+# MÓDULO 1: INTELIGÊNCIA DE CÁLCULO
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1.2, 2])
     
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
-        
         balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa")
         
         capacidade_nominal = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
-        exigencia_cts = int(BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"])
+        exigencia_cts = int(BALSAS_OPERACIONAIS.get(balsa_sel, {}).get("cts_meta", 20))
         
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
         
-        data_vigencia = st.date_input(
-            "Data de Vigência", 
-            datetime(2026, 6, 12), 
-            key="m1_data", 
-            format="DD/MM/YYYY"
-        )
+        data_vigencia = st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data", format="DD/MM/YYYY")
         
         st.markdown("**Período de Chegada na ETC:**")
         c_hora_ini, c_hora_fim = st.columns(2)
@@ -197,7 +187,6 @@ with aba1:
             
         intervalo_opcao = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0)
         passo_horas = 1 if intervalo_opcao == "1 hora" else 2
-        
         qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=3)
         
         st.metric(label="Exigência de Células de Trabalho (CTS Automático)", value=f"{exigencia_cts} CTs")
@@ -241,7 +230,6 @@ with aba1:
 
     with col_dist:
         st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas Operacionais</div>', unsafe_allow_html=True)
-        
         if st.session_state.grade_trabalho:
             total_janelas = len(st.session_state.grade_trabalho)
             cols_janelas = st.columns(4)
@@ -250,20 +238,15 @@ with aba1:
                 col_id = idx % 4
                 with cols_janelas[col_id]:
                     st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
-                    
                     valor_atual = int(jan["vagas_o"])
                     novo_valor = st.number_input(
                         "Vagas", min_value=0, max_value=int(exigencia_cts), 
-                        value=valor_atual, key=f"input_janela_{jan['id']}", 
-                        label_visibility="collapsed"
+                        value=valor_atual, key=f"input_janela_{jan['id']}", label_visibility="collapsed"
                     )
-                    
                     if novo_valor != valor_atual:
                         st.session_state.grade_trabalho[idx]["vagas_o"] = novo_valor
-                        
                         soma_atual = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
                         diferenca = exigencia_cts - soma_atual
-                        
                         indices_para_ajuste = [i for i in range(total_janelas) if i != idx]
                         
                         if indices_para_ajuste and diferenca != 0:
@@ -271,33 +254,27 @@ with aba1:
                             while diferenca != 0:
                                 alterou_nesta_rodada = False
                                 for i in indices_para_ajuste:
-                                    if diferenca == 0:
-                                        break
-                                    if passo_compensacao == -1 and st.session_state.grade_trabalho[i]["vagas_o"] <= 0:
-                                        continue
+                                    if diferenca == 0: break
+                                    if passo_compensacao == -1 and st.session_state.grade_trabalho[i]["vagas_o"] <= 0: continue
                                     st.session_state.grade_trabalho[i]["vagas_o"] += passo_compensacao
                                     diferenca -= passo_compensacao
                                     alterou_nesta_rodada = True
-                                
-                                if not alterou_nesta_rodada:
-                                    break
+                                if not alterou_nesta_rodada: break
                             st.rerun()
 
             soma_vagas_totais = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
             st.markdown("<br>", unsafe_allow_html=True)
             if soma_vagas_totais == exigencia_cts:
-                st.success(f"🎯 **Sincronismo Perfeito:** Total Distribuído: **{soma_vagas_totais}** de **{exigencia_cts}** exigidos pelo CTS da {balsa_sel}.")
+                st.success(f"🎯 **Sincronismo Perfeito:** Total Distribuído: **{soma_vagas_totais}** de **{exigencia_cts}** exigidos pelo CTS.")
             else:
-                st.error(f"⚠️ **Descompasso:** Sistema distribuindo {soma_vagas_totais} vagas. Ajustando balanço para bater a meta de {exigencia_cts}.")
+                st.error(f"⚠️ **Descompasso:** Sistema distribuindo {soma_vagas_totais} vagas. Ajuste o balanço para bater a meta de {exigencia_cts}.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-header-container">📋 Ofertas Ativas no Turno Corrente</div>', unsafe_allow_html=True)
-    
     if st.session_state.grade_publicada:
         b_ativa = st.session_state.grade_publicada["balsa"]
         d_ativa = st.session_state.grade_publicada["data"]
         dados_tabela = []
-        
         for j in st.session_state.grade_publicada["janelas"]:
             chave_consumo = f"{b_ativa}_{d_ativa}_{j['horario']}"
             consumidas = st.session_state.cotas_consumidas.get(chave_consumo, 0)
@@ -307,84 +284,82 @@ with aba1:
                 "Capacidade Máxima (Vagas)": j["vagas_o"], "Cotas Utilizadas": consumidas, "Disponibilidade Atual": disponiveis
             })
         st.dataframe(pd.DataFrame(dados_tabela), use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhuma grade foi fixada/salva ainda. Defina os parâmetros e clique em 'PUBLICAR E CONFIGURAR GRADE'.")
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO COM GRAVAÇÃO CORRIGIDA E TRANSPORTADORA
+# MÓDULO 2: PORTAL DE AGENDAMENTO (REESTRUTURADO E SEM FORM TRAVANDO)
 # =================================================================================
 with aba2:
-    col_cadastro, col_tabela_fs = st.columns([1.2, 2.4])
+    col_cadastro, col_tabela_fs = st.columns([1.3, 2.3])
     
     with col_cadastro:
         st.markdown('<div class="section-header-container">📝 Novo Agendamento Logístico</div>', unsafe_allow_html=True)
-        
         if not st.session_state.grade_publicada:
             st.warning("⚠️ Aguardando publicação da grade operacional no Módulo 1.")
         else:
             b_ativa = st.session_state.grade_publicada["balsa"]
             d_ativa = st.session_state.grade_publicada["data"]
             
-            with st.form("form_novo_agendamento", clear_on_submit=True):
-                st.text_input("Embarcação/Programação Vinculada", value=f"{b_ativa} ({d_ativa})", disabled=True)
+            st.text_input("Embarcação Vinculada", value=f"{b_ativa} ({d_ativa})", disabled=True, key="m2_balsa_vinc")
+            
+            opcoes_seletor = []
+            for j in st.session_state.grade_publicada["janelas"]:
+                chave_consumo = f"{b_ativa}_{d_ativa}_{j['horario']}"
+                consumidas = st.session_state.cotas_consumidas.get(chave_consumo, 0)
+                restantes = j["vagas_o"] - consumidas
+                status_txt = f"({restantes} vagas)" if restantes > 0 else "(ESGOTADA)"
+                opcoes_seletor.append(f"Janela #{j['id']} [{j['horario']}] {status_txt}")
                 
-                opcoes_seletor = []
-                for j in st.session_state.grade_publicada["janelas"]:
-                    chave_consumo = f"{b_ativa}_{d_ativa}_{j['horario']}"
-                    consumidas = st.session_state.cotas_consumidas.get(chave_consumo, 0)
-                    restantes = j["vagas_o"] - consumidas
-                    status_txt = f"({restantes} vagas)" if restantes > 0 else "(ESGOTADA)"
-                    opcoes_seletor.append(f"Janela #{j['id']} [{j['horario']}] {status_txt}")
-                    
-                janela_selecionada = st.selectbox("Escolha o Horário da Janela", opcoes_seletor)
+            janela_selecionada = st.selectbox("Escolha o Horário da Janela", opcoes_seletor, key="m2_janela_sel")
+            
+            # Campo de Transportadora solicitado
+            transportadora_in = st.text_input("TRANSPORTADORA", value="TRANSZION", key="m2_transp").upper()
+            
+            c_pl, c_ve = st.columns(2)
+            with c_pl: placa_in = st.text_input("PLACA", value="JVV-7606", key="m2_placa").upper()
+            with c_ve: veiculo_in = st.text_input("VEÍCULO", value="BITREN", key="m2_veiculo").upper()
                 
-                # INCLUSÃO DO CAMPO TRANSPORTADORA EXIGIDO
-                transportadora_in = st.text_input("TRANSPORTADORA", value="TRANSZION").upper()
+            c_mo, c_nf = st.columns(2)
+            with c_mo: motorista_in = st.text_input("MOTORISTA", value="JOSE FRANCISCO", key="m2_motorista").upper()
+            with c_nf: nf_in = st.text_input("Nº NOTA FISCAL", value="154639", key="m2_nf")
                 
-                c_pl, c_ve = st.columns(2)
-                with c_pl: placa_in = st.text_input("PLACA", value="JVV-7606").upper()
-                with c_ve: veiculo_in = st.text_input("VEÍCULO", value="BITREN").upper()
-                    
-                c_mo, c_nf = st.columns(2)
-                with c_mo: motorista_in = st.text_input("MOTORISTA", value="JOSE FRANCISCO").upper()
-                with c_nf: nf_in = st.text_input("Nº NOTA FISCAL", value="154639")
-                    
-                c_vo, c_pr = st.columns(2)
-                with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01)
-                with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO").upper()
-                    
-                arq_upload = st.file_uploader("ANEXAR NOTA FISCAL (PDF)", type=["pdf"])
-                submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS", use_container_width=True)
+            c_vo, c_pr = st.columns(2)
+            with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01, key="m2_volume")
+            with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO", key="m2_produto").upper()
                 
-                if submetido:
-                    id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
-                    janela_obj = next(j for j in st.session_state.grade_publicada["janelas"] if j["id"] == id_janela_sel)
-                    janela_limpa = janela_obj["horario"]
+            arq_upload = st.file_uploader("ANEXAR NOTA FISCAL (PDF)", type=["pdf"], key="m2_upload_nf")
+            
+            # Botão de Ação Direta (Livre do bug do st.form)
+            if st.button("🔒 CONFIRMAR AGENDAMENTO FS", use_container_width=True, type="primary"):
+                id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
+                janela_obj = next(j for j in st.session_state.grade_publicada["janelas"] if j["id"] == id_janela_sel)
+                janela_limpa = janela_obj["horario"]
+                
+                chave_consumo = f"{b_ativa}_{d_ativa}_{janela_limpa}"
+                consumidas = st.session_state.cotas_consumidas.get(chave_consumo, 0)
+                
+                if consumidas >= janela_obj["vagas_o"]:
+                    st.error("❌ Erro: Esta janela horária esgotou a disponibilidade física!")
+                elif not transportadora_in or not placa_in or not motorista_in:
+                    st.error("❌ Erro: Preencha todos os campos obrigatórios do veículo!")
+                else:
+                    st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
                     
-                    chave_consumo = f"{b_ativa}_{d_ativa}_{janela_limpa}"
-                    consumidas = st.session_state.cotas_consumidas.get(chave_consumo, 0)
+                    # Geração de ID Único preciso baseado em timestamp de alta definição para evitar quebras de chaves duplicadas
+                    novo_id = int(time.time() * 1000)
                     
-                    if consumidas >= janela_obj["vagas_o"]:
-                        st.error("❌ Erro: Esta janela horária esgotou a disponibilidade física!")
-                    else:
-                        st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
-                        
-                        novo_id = int(datetime.now().timestamp())
-                        
-                        # Gravação estruturada contendo a transportadora no Banco
-                        st.session_state.db_agendamentos.append({
-                            "id": novo_id, "balsa": b_ativa, "data": d_ativa, "janela": janela_limpa,
-                            "transportadora": transportadora_in, "placa": placa_in, "veiculo": veiculo_in, 
-                            "motorista": motorista_in, "nf": nf_in, "volume": float(volume_in), 
-                            "produto": produto_in, "chegada_efetiva": None, "status_chegada": "Aguardando"
-                        })
-                        st.success("✅ Agendamento e vaga garantidos com sucesso!")
-                        st.rerun()
+                    st.session_state.db_agendamentos.append({
+                        "id": novo_id, "balsa": b_ativa, "data": d_ativa, "janela": janela_limpa,
+                        "transportadora": transportadora_in, "placa": placa_in, "veiculo": veiculo_in, 
+                        "motorista": motorista_in, "nf": nf_in, "volume": float(volume_in), 
+                        "produto": produto_in, "chegada_efetiva": None, "status_chegada": "Aguardando"
+                    })
+                    st.success("✅ Agendamento gravado e vaga garantida com sucesso!")
+                    time.sleep(0.5)
+                    st.rerun()
 
     with col_tabela_fs:
         st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS (Passaporte do Carreteiro)</div>', unsafe_allow_html=True)
-        # Ajuste dinâmico das larguras de colunas para comportar a transportadora
-        pesos_colunas = [0.7, 0.9, 1.2, 1.1, 0.9, 1.3, 0.8, 1.2]
+        pesos_colunas = [0.7, 0.9, 1.2, 1.2, 0.9, 1.4, 0.8, 1.1]
         
         c = st.columns(pesos_colunas)
         c[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
@@ -396,7 +371,7 @@ with aba2:
         c[6].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
         c[7].markdown('<div class="tabela-header">PASSAPORTE</div>', unsafe_allow_html=True)
         
-        for ag in st.session_state.db_agendamentos:
+        for idx, ag in enumerate(st.session_state.db_agendamentos):
             l = st.columns(pesos_colunas)
             l[0].markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
             l[1].markdown(f'<div class="tabela-linha">{ag["data"]}</div>', unsafe_allow_html=True)
@@ -409,7 +384,8 @@ with aba2:
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
             
-            chave_botao_unica = f"btn_download_{ag['id']}"
+            # ID Completamente dinâmico resolvendo o erro fatal de DuplicateElementKey enviado no terminal
+            chave_botao_unica = f"download_btn_key_{ag['id']}_{idx}"
             l[7].download_button(
                 label="📄 Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
                 mime="image/png", key=chave_botao_unica, use_container_width=True
@@ -424,9 +400,8 @@ with aba3:
     
     with col_scan:
         st.subheader("Simulador de Scanner de Celular")
-        codigo_scaneado = st.text_area("Cole aqui o texto lido pelo celular:", placeholder="ID:100\nBALSA:SD IV...", height=100)
-        
-        if st.button("📥 PROCESSAR ENTRADA IMEDIATA", use_container_width=True):
+        codigo_scaneado = st.text_area("Cole aqui o texto lido pelo celular:", placeholder="ID:100\nBALSA:SD IV...", height=100, key="m3_scanner")
+        if st.button("📥 PROCESSAR ENTRADA IMEDIATA", use_container_width=True, key="m3_btn_scan"):
             if codigo_scaneado:
                 try:
                     linhas = codigo_scaneado.split("\n")
@@ -439,7 +414,6 @@ with aba3:
                         id_localizado = int(codigo_scaneado.strip())
                         
                     idx = next((i for i, item in enumerate(st.session_state.db_agendamentos) if item["id"] == id_localizado), None)
-                    
                     if idx is not None:
                         ag_alvo = st.session_state.db_agendamentos[idx]
                         if ag_alvo["chegada_efetiva"] is None:
@@ -447,21 +421,21 @@ with aba3:
                             st.session_state.db_agendamentos[idx]["chegada_efetiva"] = agora.strftime("%H:%M:%S")
                             st.session_state.db_agendamentos[idx]["status_chegada"] = calcular_status_atraso(ag_alvo["janela"], agora)
                             st.success(f"✅ Entrada registrada para a Placa {ag_alvo['placa']}!")
+                            time.sleep(0.5)
                             st.rerun()
                         else:
                             st.warning("⚠️ Este veículo já deu entrada.")
                     else:
                         st.error("❌ Código inválido ou agendamento não encontrado.")
                 except:
-                    st.error("❌ Formato inválido.")
+                    st.error("❌ Formato de código inválido.")
 
     with col_manual:
         st.subheader("Check-in de Segurança Rápido")
         veiculos_nao_recebidos = [ag for ag in st.session_state.db_agendamentos if ag.get("chegada_efetiva") is None]
-        
         if veiculos_nao_recebidos:
-            selecionado_manual = st.selectbox("Selecione o veículo:", options=[f"ID: {v['id']} | Balsa: {v['balsa']} | Placa: {v['placa']}" for v in veiculos_nao_recebidos])
-            if st.button("⏱️ REGISTRAR CHEGADA AGORA", use_container_width=True):
+            selecionado_manual = st.selectbox("Selecione o veículo:", options=[f"ID: {v['id']} | Balsa: {v['balsa']} | Placa: {v['placa']}" for v in veiculos_nao_recebidos], key="m3_manual_sel")
+            if st.button("⏱️ REGISTRAR CHEGADA AGORA", use_container_width=True, key="m3_btn_manual"):
                 id_manual = int(selecionado_manual.split("ID: ")[1].split(" |")[0])
                 idx_m = next((i for i, item in enumerate(st.session_state.db_agendamentos) if item["id"] == id_manual), None)
                 agora = datetime.now()
@@ -472,7 +446,7 @@ with aba3:
             st.info("Todos os caminhões agendados já se encontram no pátio.")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="section-header-container">📋 Painel de Controle de Tempo e Atrasos (Histórico de ETA/ETC)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📋 Painel de Controle de Tempo e Atrasos</div>', unsafe_allow_html=True)
     
     pesos_m3 = [0.8, 1.2, 1.5, 1.0, 1.2, 1.5, 1.0, 1.2, 1.2]
     c_m3 = st.columns(pesos_m3)
