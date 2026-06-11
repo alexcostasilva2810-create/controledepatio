@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # =================================================================================
-# DICIONÁRIO DE BALSAS OPERACIONAIS ORIGINAL PROTEGIDO
+# DICIONÁRIO DE BALSAS OPERACIONAIS ORIGINAL PROTEGIDO (Corrigido SD XIV)
 # =================================================================================
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, 
@@ -29,7 +29,7 @@ BALSAS_OPERACIONAIS = {
     "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
     "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "cte_meta": 24}, 
+    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, # Corrigido de cte_meta para cts_meta
     "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
@@ -40,11 +40,6 @@ BALSAS_OPERACIONAIS = {
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
     "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
-
-# Tratamento para garantir consistência de chaves internas
-for balsa, dados in BALSAS_OPERACIONAIS.items():
-    if "cts_meta" not in dados and "cte_meta" in dados:
-        BALSAS_OPERACIONAIS[balsa]["cts_meta"] = dados["cte_meta"]
 
 # =================================================================================
 # CONTROLE DE ACESSO E USUÁRIOS
@@ -116,6 +111,7 @@ def obter_texto_qrcode(agendamento_dict):
         f"ID:{agendamento_dict['id']}\n"
         f"BALSA:{agendamento_dict['balsa']}\n"
         f"PLACA:{agendamento_dict['placa']}\n"
+        f"TRANSP:{agendamento_dict['transportadora']}\n"
         f"MOTORISTA:{agendamento_dict['motorista']}\n"
         f"JANELA:{agendamento_dict['janela']}\n"
         f"NF:{agendamento_dict['nf']}"
@@ -180,7 +176,6 @@ with aba1:
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
         
-        # Seleção de balsa sempre ativa
         balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa")
         
         capacidade_nominal = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
@@ -205,10 +200,8 @@ with aba1:
         
         qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=3)
         
-        # Caixa informativa exibindo o CTS de forma dinâmica e automatizada
         st.metric(label="Exigência de Células de Trabalho (CTS Automático)", value=f"{exigencia_cts} CTs")
 
-        # GERAÇÃO E RECALCULO AUTOMÁTICO COMPLETO DA GRADE
         chave_verificacao = f"{balsa_sel}_{qtd_janelas_solicitadas}_{exigencia_cts}_{h_ini_str}_{h_fim_str}_{intervalo_opcao}"
         if st.session_state.get("ultima_chave_config") != chave_verificacao:
             lista_janelas_calculadas = []
@@ -242,7 +235,7 @@ with aba1:
                 st.session_state.grade_publicada = {
                     "balsa": balsa_sel,
                     "data": data_vigencia.strftime("%d/%m/%Y"),
-                    "janelas": st.session_state.grade_trabalho
+                    "janelas": list(st.session_state.grade_trabalho)
                 }
                 st.success("✅ Estrutura de vagas fixada e enviada para o Portal do Cliente!")
 
@@ -259,7 +252,6 @@ with aba1:
                     st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
                     
                     valor_atual = int(jan["vagas_o"])
-                    # Campo numérico interativo e responsivo
                     novo_valor = st.number_input(
                         "Vagas", min_value=0, max_value=int(exigencia_cts), 
                         value=valor_atual, key=f"input_janela_{jan['id']}", 
@@ -319,10 +311,10 @@ with aba1:
         st.info("Nenhuma grade foi fixada/salva ainda. Defina os parâmetros e clique em 'PUBLICAR E CONFIGURAR GRADE'.")
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO COM VALIDAÇÃO DE DISPONIBILIDADE REAL
+# MÓDULO 2: PORTAL DE AGENDAMENTO COM GRAVAÇÃO CORRIGIDA E TRANSPORTADORA
 # =================================================================================
 with aba2:
-    col_cadastro, col_tabela_fs = st.columns([1.1, 2.5])
+    col_cadastro, col_tabela_fs = st.columns([1.2, 2.4])
     
     with col_cadastro:
         st.markdown('<div class="section-header-container">📝 Novo Agendamento Logístico</div>', unsafe_allow_html=True)
@@ -345,6 +337,9 @@ with aba2:
                     opcoes_seletor.append(f"Janela #{j['id']} [{j['horario']}] {status_txt}")
                     
                 janela_selecionada = st.selectbox("Escolha o Horário da Janela", opcoes_seletor)
+                
+                # INCLUSÃO DO CAMPO TRANSPORTADORA EXIGIDO
+                transportadora_in = st.text_input("TRANSPORTADORA", value="TRANSZION").upper()
                 
                 c_pl, c_ve = st.columns(2)
                 with c_pl: placa_in = st.text_input("PLACA", value="JVV-7606").upper()
@@ -375,25 +370,28 @@ with aba2:
                         st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
                         
                         novo_id = int(datetime.now().timestamp())
+                        
+                        # Gravação estruturada contendo a transportadora no Banco
                         st.session_state.db_agendamentos.append({
                             "id": novo_id, "balsa": b_ativa, "data": d_ativa, "janela": janela_limpa,
-                            "placa": placa_in, "veiculo": veiculo_in, "motorista": motorista_in,
-                            "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
-                            "chegada_efetiva": None, "status_chegada": "Aguardando"
+                            "transportadora": transportadora_in, "placa": placa_in, "veiculo": veiculo_in, 
+                            "motorista": motorista_in, "nf": nf_in, "volume": float(volume_in), 
+                            "produto": produto_in, "chegada_efetiva": None, "status_chegada": "Aguardando"
                         })
-                        st.success("✅ Agendamento e vaga garantidos!")
+                        st.success("✅ Agendamento e vaga garantidos com sucesso!")
                         st.rerun()
 
     with col_tabela_fs:
         st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS (Passaporte do Carreteiro)</div>', unsafe_allow_html=True)
-        pesos_colunas = [0.8, 1.0, 1.3, 1.0, 1.1, 1.5, 1.0, 1.4]
+        # Ajuste dinâmico das larguras de colunas para comportar a transportadora
+        pesos_colunas = [0.7, 0.9, 1.2, 1.1, 0.9, 1.3, 0.8, 1.2]
         
         c = st.columns(pesos_colunas)
         c[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
         c[1].markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
         c[2].markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
-        c[3].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
-        c[4].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
+        c[3].markdown('<div class="tabela-header">TRANSP.</div>', unsafe_allow_html=True)
+        c[4].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
         c[5].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
         c[6].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
         c[7].markdown('<div class="tabela-header">PASSAPORTE</div>', unsafe_allow_html=True)
@@ -403,18 +401,17 @@ with aba2:
             l[0].markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
             l[1].markdown(f'<div class="tabela-linha">{ag["data"]}</div>', unsafe_allow_html=True)
             l[2].markdown(f'<div class="tabela-linha">{ag["janela"]}</div>', unsafe_allow_html=True)
-            l[3].markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
-            l[4].markdown(f'<div class="tabela-linha">{ag["veiculo"]}</div>', unsafe_allow_html=True)
+            l[3].markdown(f'<div class="tabela-linha">{ag.get("transportadora", "N/I")}</div>', unsafe_allow_html=True)
+            l[4].markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
             l[5].markdown(f'<div class="tabela-linha">{ag["motorista"]}</div>', unsafe_allow_html=True)
             l[6].markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
             
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
             
-            # Geração de ID dinâmico e seguro anti-duplicação baseado em timestamp
-            chave_botao_unica = f"btn_download_{ag['id']}_{int(datetime.now().timestamp())}"
+            chave_botao_unica = f"btn_download_{ag['id']}"
             l[7].download_button(
-                label="📄 Imprimir Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
+                label="📄 Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
                 mime="image/png", key=chave_botao_unica, use_container_width=True
             )
 
