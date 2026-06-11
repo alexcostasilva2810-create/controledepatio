@@ -72,7 +72,7 @@ if not st.session_state.autenticado:
         st.markdown("<br><br>", unsafe_allow_html=True)
         caminho_imagem = "Gemini_Generated_Image_mz1weumz1weumz1w.png"
         
-        if os.path.exists(caminho_imagem):
+        if os.path.exists(caminia_imagem := caminho_imagem):
             st.image(caminho_imagem, use_container_width=True)
         else:
             st.image("image_12249a.png", use_container_width=True)
@@ -136,10 +136,9 @@ def calcular_status_atraso(janela_str, horario_chegada_dt):
         return "⚠️ Erro no cálculo"
 
 # =================================================================================
-# FUNÇÃO DE CALLBACK DE ALTA PRIORIDADE PARA SALVAMENTO DO MÓDULO 2
+# FUNÇÃO DE CALLBACK PARA SALVAMENTO DO MÓDULO 2
 # =================================================================================
 def salvar_agendamento_modulo2():
-    # Coleta segura dos inputs diretamente do session_state mapeado
     b_ativa = st.session_state.grade_publicada.get("balsa")
     d_ativa = st.session_state.grade_publicada.get("data")
     janela_selecionada = st.session_state.get("m2_janela_sel")
@@ -159,7 +158,6 @@ def salvar_agendamento_modulo2():
         st.session_state["m2_msg_erro"] = "Esta janela horária esgotou a disponibilidade física!"
         return
         
-    # Inserção direta e atômica na lista global de agendamentos
     novo_id = int(time.time() * 1000)
     st.session_state.db_agendamentos.append({
         "id": novo_id,
@@ -174,10 +172,10 @@ def salvar_agendamento_modulo2():
         "volume": float(st.session_state.get("m2_volume", 0.0)),
         "produto": st.session_state.get("m2_produto", "").upper(),
         "chegada_efetiva": None,
-        "status_chegada": "Aguardando"
+        "status_chegada": "Aguardando",
+        "fluxo_patio": "AGUARDANDO"  # Status inicial do Módulo 4
     })
     
-    # Registra o incremento da cota consumida
     st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
     st.session_state["m2_msg_sucesso"] = "✅ Agendamento gravado e vaga garantida com sucesso!"
 
@@ -203,10 +201,11 @@ st.markdown(f"""
 if st.sidebar.button("🚪 ENCERRAR SESSÃO"):
     realizar_logout()
 
-aba1, aba2, aba3 = st.tabs([
+aba1, aba2, aba3, aba4 = st.tabs([
     "⚓ MÓDULO 1: Gestão de Disponibilidade (GD)", 
     "🚛 MÓDULO 2: Portal de Agendamento (Cliente FS)",
-    "📱 MÓDULO 3: Recepção e Apontamento (Portaria ETC)"
+    "📱 MÓDULO 3: Recepção e Apontamento (Portaria ETC)",
+    "📊 MÓDULO 4: Controle de Fluxo Operacional (Pátio/Posto)"
 ])
 
 # =================================================================================
@@ -332,7 +331,7 @@ with aba1:
         st.dataframe(pd.DataFrame(dados_tabela), use_container_width=True, hide_index=True)
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (GATILHO AUTOMÁTICO COM CALLBACK ATÔMICO)
+# MÓDULO 2: PORTAL DE AGENDAMENTO
 # =================================================================================
 with aba2:
     col_cadastro, col_tabela_fs = st.columns([1.3, 2.3])
@@ -356,8 +355,6 @@ with aba2:
                 opcoes_seletor.append(f"Janela #{j['id']} [{j['horario']}] {status_txt}")
                 
             st.selectbox("Escolha o Horário da Janela", opcoes_seletor, key="m2_janela_sel")
-            
-            # Campo de Transportadora obrigatório mapeado no state
             st.text_input("TRANSPORTADORA", value="TRANSZION", key="m2_transp")
             
             c_pl, c_ve = st.columns(2)
@@ -374,7 +371,6 @@ with aba2:
                 
             st.file_uploader("ANEXAR NOTA FISCAL (PDF)", type=["pdf"], key="m2_upload_nf")
             
-            # EXIBIÇÃO DE MENSAGENS RETORNADAS PELO CALLBACK
             if "m2_msg_erro" in st.session_state:
                 st.error(st.session_state["m2_msg_erro"])
                 del st.session_state["m2_msg_erro"]
@@ -382,13 +378,7 @@ with aba2:
                 st.success(st.session_state["m2_msg_sucesso"])
                 del st.session_state["m2_msg_sucesso"]
             
-            # BOTÃO COM SEGURO DE CALLBACK ON_CLICK (Força execução imediata na base)
-            st.button(
-                "🔒 CONFIRMAR AGENDAMENTO FS", 
-                use_container_width=True, 
-                type="primary",
-                on_click=salvar_agendamento_modulo2
-            )
+            st.button("🔒 CONFIRMAR AGENDAMENTO FS", use_container_width=True, type="primary", on_click=salvar_agendamento_modulo2)
 
     with col_tabela_fs:
         st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS (Passaporte do Carreteiro)</div>', unsafe_allow_html=True)
@@ -427,7 +417,7 @@ with aba2:
 # MÓDULO 3: RECEPÇÃO E APONTAMENTO (PORTARIA)
 # =================================================================================
 with aba3:
-    st.markdown('<div class="section-header-container">📱  Recepção Digital de Portaria (Leitura de SmartPhone)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📱 Recepção Digital de Portaria (Leitura de SmartPhone)</div>', unsafe_allow_html=True)
     col_scan, col_manual = st.columns([1.5, 2])
     
     with col_scan:
@@ -439,7 +429,7 @@ with aba3:
                     linhas = codigo_scaneado.split("\n")
                     id_localizado = None
                     for linha in linhas:
-                        if "ID:" in linha:
+                        if "ID:" in line := linha:
                             id_localizado = int(linha.split(":")[1].strip())
                             break
                     if id_localizado is None:
@@ -508,3 +498,91 @@ with aba3:
         status_c = ag.get("status_chegada") if ag.get("status_chegada") else "Aguardando"
         cor_status = "#334155" if "Aguardando" in status_c else ("#DC2626" if "Atrasado" in status_c else "#16A34A")
         l_m3[8].markdown(f'<div class="tabela-linha" style="color:{cor_status}; font-weight:bold;">{status_c}</div>', unsafe_allow_html=True)
+
+# =================================================================================
+# MÓDULO 4: NOVO MÓDULO DE CONTROLE DE FLUXO OPERACIONAL (PÁTIO / POSTO)
+# =================================================================================
+with aba4:
+    st.markdown('<div class="section-header-container">📋 Monitoramento e Transição de Status de Pátio / Posto</div>', unsafe_allow_html=True)
+    
+    # Índices de Cards Resumos
+    total_m4 = len(st.session_state.db_agendamentos)
+    c_aguardando = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "AGUARDANDO"])
+    c_transito = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "TRANSITO"])
+    c_descarga = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "AGUARDANDO DESCARGA"])
+    c_finalizado = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "FINALIZADA"])
+    
+    card1, card2, card3, card4, card5 = st.columns(5)
+    card1.metric("Total em Operação", f"{total_m4} Vol.")
+    card2.metric("Aguardando Saída", f"{c_aguardando} Vol.")
+    card3.metric("Em Trânsito p/ Posto", f"{c_transito} Vol.")
+    card4.metric("Aguardando Descarga", f"{c_descarga} Vol.")
+    card5.metric("Finalizados", f"{c_finalizado} Vol.")
+    
+    st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+    
+    # Largura de colunas calculadas para comportar dados + botões de mudança de estágio
+    pesos_m4 = [0.7, 1.2, 1.3, 0.9, 0.9, 1.0, 1.2, 0.8, 1.3, 1.4]
+    
+    c_m4 = st.columns(pesos_m4)
+    c_m4[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
+    c_m4[1].markdown('<div class="tabela-header">ID</div>', unsafe_allow_html=True)
+    c_m4[2].markdown('<div class="tabela-header">JANELA</div>', unsafe_allow_html=True)
+    c_m4[3].markdown('<div class="tabela-header">HORA CHEGADA</div>', unsafe_allow_html=True)
+    c_m4[4].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
+    c_m4[5].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
+    c_m4[6].markdown('<div class="tabela-header">TRANSPORTADORA</div>', unsafe_allow_html=True)
+    c_m4[7].markdown('<div class="tabela-header">NF</div>', unsafe_allow_html=True)
+    c_m4[8].markdown('<div class="tabela-header">STATUS FLUXO</div>', unsafe_allow_html=True)
+    c_m4[9].markdown('<div class="tabela-header">MUDAR ESTÁGIO</div>', unsafe_allow_html=True)
+    
+    if total_m4 == 0:
+        st.info("Nenhum veículo agendado ou em pátio no momento.")
+        
+    for idx_m4, ag in enumerate(st.session_state.db_agendamentos):
+        l_m4 = st.columns(pesos_m4)
+        l_m4[0].markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
+        l_m4[1].markdown(f'<div class="tabela-linha">{ag["id"]}</div>', unsafe_allow_html=True)
+        l_m4[2].markdown(f'<div class="tabela-linha">{ag["janela"]}</div>', unsafe_allow_html=True)
+        
+        hora_chegada_limpa = ag.get("chegada_efetiva") if ag.get("chegada_efetiva") else "Não Chegou"
+        l_m4[3].markdown(f'<div class="tabela-linha">{hora_chegada_limpa}</div>', unsafe_allow_html=True)
+        l_m4[4].markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
+        l_m4[5].markdown(f'<div class="tabela-linha">{ag["veiculo"]}</div>', unsafe_allow_html=True)
+        l_m4[6].markdown(f'<div class="tabela-linha">{ag.get("transportadora", "N/I")}</div>', unsafe_allow_html=True)
+        l_m4[7].markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
+        
+        # Obtenção do status do fluxo com cores customizadas por inteligência visual
+        st_atual = ag.get("fluxo_patio", "AGUARDANDO")
+        if st_atual == "AGUARDANDO":
+            cor_txt = "#D97706"
+            f_label = "⏳ AGUARDANDO"
+        elif st_atual == "TRANSITO":
+            cor_txt = "#2563EB"
+            f_label = "🚚 TRÂNSITO (POSTO)"
+        elif st_atual == "AGUARDANDO DESCARGA":
+            cor_txt = "#7C3AED"
+            f_label = "⚓ AGUARD. DESCARGA"
+        else:
+            cor_txt = "#16A34A"
+            f_label = "✅ FINALIZADA"
+            
+        l_m4[8].markdown(f'<div class="tabela-linha" style="color:{cor_txt}; font-weight:bold;">{f_label}</div>', unsafe_allow_html=True)
+        
+        # Botão de Transição Rápida de Estados (Pipeline Logístico)
+        btn_key = f"btn_fluxo_{ag['id']}_{idx_m4}"
+        
+        if st_atual == "AGUARDANDO":
+            if l_m4[9].button("Liberar p/ Posto ➡️", key=btn_key, use_container_width=True):
+                st.session_state.db_agendamentos[idx_m4]["fluxo_patio"] = "TRANSITO"
+                st.rerun()
+        elif st_atual == "TRANSITO":
+            if l_m4[9].button("Chegou Doca ➡️", key=btn_key, use_container_width=True):
+                st.session_state.db_agendamentos[idx_m4]["fluxo_patio"] = "AGUARDANDO DESCARGA"
+                st.rerun()
+        elif st_atual == "AGUARDANDO DESCARGA":
+            if l_m4[9].button("Concluir Operação ✔️", key=btn_key, use_container_width=True):
+                st.session_state.db_agendamentos[idx_m4]["fluxo_patio"] = "FINALIZADA"
+                st.rerun()
+        else:
+            l_m4[9].markdown('<div class="tabela-linha" style="color:#16A34A;">Concluído</div>', unsafe_allow_html=True)
