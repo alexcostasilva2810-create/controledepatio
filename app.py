@@ -203,8 +203,14 @@ with aba1:
         
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
         
-        # Data Formatada e com Localidade em Português
-        data_vigencia = st.date_input("Data de Vigência (DD/MM/AAAA)", datetime(2026, 6, 12), key="m1_data", disabled=not st.session_state.modo_edicao_m1)
+        # AJUSTADO: Adicionado 'format="DD/MM/YYYY"' para renderizar e travar o padrão PT-BR na tela
+        data_vigencia = st.date_input(
+            "Data de Vigência", 
+            datetime(2026, 6, 12), 
+            key="m1_data", 
+            format="DD/MM/YYYY",
+            disabled=not st.session_state.modo_edicao_m1
+        )
         
         st.markdown("**Período de Chegada na ETC:**")
         c_hora_ini, c_hora_fim = st.columns(2)
@@ -236,7 +242,6 @@ with aba1:
             vagas_por_janela_base = exigencia_cts // total_janelas_reais if total_janelas_reais > 0 else 0
             resto_vagas = exigencia_cts % total_janelas_reais if total_janelas_reais > 0 else 0
             
-            # Reconstrói a lista temporária distribuindo o resto para bater com o CTS exato
             nova_grade = []
             for idx, jan in enumerate(lista_janelas_calculadas):
                 vagas_calculadas = vagas_por_janela_base + (1 if idx < resto_vagas else 0)
@@ -250,13 +255,11 @@ with aba1:
             total_janelas = len(st.session_state.grade_trabalho)
             cols_janelas = st.columns(4)
             
-            # Loop de renderização e captura de alterações manuais
             for idx, jan in enumerate(st.session_state.grade_trabalho):
                 col_id = idx % 4
                 with cols_janelas[col_id]:
                     st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
                     
-                    # Elemento Input de Vagas
                     valor_atual = int(jan["vagas_o"])
                     novo_valor = st.number_input(
                         "Vagas", min_value=0, max_value=int(exigencia_cts), 
@@ -264,32 +267,26 @@ with aba1:
                         label_visibility="collapsed", disabled=not st.session_state.modo_edicao_m1
                     )
                     
-                    # Regra de Negócio: Se o usuário mexer em uma janela, compensa automaticamente nas outras
                     if novo_valor != valor_atual and st.session_state.modo_edicao_m1:
                         st.session_state.grade_trabalho[idx]["vagas_o"] = novo_valor
                         
-                        # Calcula a diferença que sobrou/falta para bater o CTS total
                         soma_atual = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
                         diferenca = exigencia_cts - soma_atual
                         
-                        # Define quais outras janelas vão absorver a diferença (excluindo a que mudou)
                         indices_para_ajuste = [i for i in range(total_janelas) if i != idx]
                         
                         if indices_para_ajuste and diferenca != 0:
-                            # Distribui o saldo remanescente de forma inteira e balanceada
                             passo_compensacao = 1 if diferenca > 0 else -1
                             while diferenca != 0:
                                 for i in indices_para_ajuste:
                                     if diferenca == 0:
                                         break
-                                    # Impede valores negativos nas outras janelas durante a subtração
                                     if passo_compensacao == -1 and st.session_state.grade_trabalho[i]["vagas_o"] <= 0:
                                         continue
                                     st.session_state.grade_trabalho[i]["vagas_o"] += passo_compensacao
                                     diferenca -= passo_compensacao
                             st.rerun()
 
-            # Painel Informativo de Auditoria de Totalização
             soma_vagas_totais = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
             st.markdown("<br>", unsafe_allow_html=True)
             if soma_vagas_totais == exigencia_cts:
@@ -431,7 +428,7 @@ with aba3:
                 try:
                     linhas = codigo_scaneado.split("\n")
                     id_localizado = None
-                    for linha in lines:
+                    for linha in linhas:
                         if "ID:" in linha:
                             id_localizado = int(linha.split(":")[1].strip())
                             break
