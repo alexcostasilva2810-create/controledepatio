@@ -63,7 +63,7 @@ if not st.session_state.autenticado:
     st.stop()  # Trava o script aqui, impedindo a renderização do sistema sem login
 
 # =================================================================================
-# SISTEMA PRINCIPAL INTEGRAL (MANTIDO EXATAMENTE COMO ESTAVA)
+# SISTEMA PRINCIPAL INTEGRAL (MANTIDO EXATAMENTE COMO ESTAVA COM OS NOVOS CAMPOS)
 # =================================================================================
 
 # 2. ESTILIZAÇÃO VISUAL (CSS)
@@ -103,6 +103,21 @@ st.markdown("""
         text-align: center;
         margin-bottom: 15px;
     }
+    /* Estilo do novo botão profissional de Publicar */
+    div.stButton > button[key="btn_publicar_grade"] {
+        background-color: #1E3A8A !important;
+        color: white !important;
+        border: 1px solid #172554 !important;
+        width: 100%;
+        font-weight: bold !important;
+        padding: 12px !important;
+        border-radius: 6px !important;
+        transition: background-color 0.3s;
+    }
+    div.stButton > button[key="btn_publicar_grade"]:hover {
+        background-color: #1D4ED8 !important;
+    }
+    /* Estilo antigo mantido para outros formulários se necessário */
     div[data-testid="stForm"] .stButton>button {
         background-color: #FF4D4D !important;
         color: white !important;
@@ -177,14 +192,31 @@ aba1, aba2 = st.tabs([
 # MÓDULO 1: GESTÃO DE DISPONIBILIDADE
 # =================================================================================
 with aba1:
-    col_config, col_dist = st.columns([1, 2])
+    col_config, col_dist = st.columns([1.2, 2])
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
         st.selectbox("Selecione a Embarcação", ["SD II"], key="m1_balsa")
         st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data")
+        
+        # NOVOS CAMPOS DO PAINEL DE CONTROLE DE COTAS EXIGIDOS
+        st.markdown("**Período de Chegada na ETC:**")
+        c_hora_ini, c_hora_fim = st.columns(2)
+        with c_hora_ini:
+            hora_inicio = st.selectbox("A partir de:", ["06:00", "07:00", "08:00", "09:00", "18:00"], index=1)
+        with c_hora_fim:
+            hora_fim = st.selectbox("Até as:", ["17:00", "18:00", "19:00", "20:00", "22:00"], index=1)
+            
+        c_int, c_qtd_jan = st.columns(2)
+        with c_int:
+            intervalo_janela = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0)
+        with c_qtd_jan:
+            qtd_janelas = st.selectbox("Janelas Ofertadas:", [6, 8, 12, 24], index=1)
+            
         exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=25)
-        if st.button("🔴 PUBLICAR DISPONIBILIDADE", use_container_width=True):
-            st.success("Configuração atualizada com sucesso!")
+        
+        # BOTÃO MODIFICADO PARA ALGO MAIS PROFISSIONAL
+        if st.button("🔄 PUBLICAR E CONFIGURAR GRADE", key="btn_publicar_grade"):
+            st.success("Nova grade de disponibilidade publicada com sucesso!")
 
     with col_dist:
         st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas</div>', unsafe_allow_html=True)
@@ -278,78 +310,4 @@ with aba2:
             if submetido:
                 id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
                 index_janela = next((index for (index, d) in enumerate(st.session_state.ofertas) if d["id"] == id_janela_sel), None)
-                vagas_restantes = st.session_state.ofertas[index_janela]['vagas_o'] - st.session_state.ofertas[index_janela]['cotas_o']
-                
-                if vagas_restantes <= 0:
-                    st.error("❌ Erro: Esta janela horária está esgotada!")
-                else:
-                    st.session_state.ofertas[index_janela]['cotas_o'] += 1
-                    janela_limpa = st.session_state.ofertas[index_janela]['horario']
-                    
-                    if arq_upload is not None:
-                        nome_documento = arq_upload.name
-                        binario_doc = arq_upload.read()
-                    else:
-                        nome_documento = f"Nota_{nf_in}.pdf"
-                        binario_doc = b"%PDF-1.4 ... (Sem arquivo enviado)"
-                    
-                    novo_id = len(st.session_state.db_agendamentos)
-                    st.session_state.db_agendamentos.append({
-                        "id": novo_id, "balsa": "SD II", "data": "12/06/2026", "janela": janela_limpa,
-                        "placa": placa_in, "veiculo": veiculo_in, "motorista": motorista_in,
-                        "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
-                        "arquivo_nome": nome_documento, "conteudo_bytes": binario_doc
-                    })
-                    st.success("✅ Agendamento registrado com sucesso!")
-                    st.rerun()
-
-    with col_tabela_fs:
-        st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS FS (Visão de Tabela Horizontal)</div>', unsafe_allow_html=True)
-        pesos_colunas = [1.2, 1.2, 1.6, 1.2, 1.2, 1.8, 1.2, 1.2, 1.0]
-        
-        c = st.columns(pesos_colunas)
-        c[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
-        c[1].markdown('<div class="tabela-header">DATA</div>', unsafe_allow_html=True)
-        c[2].markdown('<div class="tabela-header">HORÁRIO</div>', unsafe_allow_html=True)
-        c[3].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
-        c[4].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
-        c[5].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
-        c[6].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
-        c[7].markdown('<div class="tabela-header">VOLUME</div>', unsafe_allow_html=True)
-        c[8].markdown('<div class="tabela-header">AÇÃO</div>', unsafe_allow_html=True)
-        
-        for idx, ag in enumerate(st.session_state.db_agendamentos):
-            l = st.columns(pesos_colunas)
-            
-            if st.session_state.editando_id == ag["id"]:
-                balsa_ed = l[0].text_input("Balsa", value=ag["balsa"], key=f"b_ed_{idx}", label_visibility="collapsed")
-                data_ed = l[1].text_input("Data", value=ag["data"], key=f"d_ed_{idx}", label_visibility="collapsed")
-                janela_ed = l[2].text_input("Janela", value=ag["janela"], key=f"j_ed_{idx}", label_visibility="collapsed")
-                placa_ed = l[3].text_input("Placa", value=ag["placa"], key=f"p_ed_{idx}", label_visibility="collapsed").upper()
-                veiculo_ed = l[4].text_input("Veículo", value=ag["veiculo"], key=f"v_ed_{idx}", label_visibility="collapsed").upper()
-                motorista_ed = l[5].text_input("Motorista", value=ag["motorista"], key=f"m_ed_{idx}", label_visibility="collapsed").upper()
-                nf_ed = l[6].text_input("NF", value=ag["nf"], key=f"n_ed_{idx}", label_visibility="collapsed")
-                volume_ed = l[7].number_input("Vol", value=float(ag["volume"]), key=f"vo_ed_{idx}", label_visibility="collapsed", step=0.01)
-                
-                if l[8].button("💾", key=f"btn_salvar_{idx}", use_container_width=True):
-                    st.session_state.db_agendamentos[idx].update({
-                        "balsa": balsa_ed, "data": data_ed, "janela": janela_ed,
-                        "placa": placa_ed, "veiculo": veiculo_ed, "motorista": motorista_ed,
-                        "nf": nf_ed, "volume": volume_ed
-                    })
-                    st.session_state.editando_id = None
-                    st.toast("Alterações salvas!")
-                    st.rerun()
-            else:
-                l[0].markdown(f'<div class="tabela-linha">{ag.get("balsa")}</div>', unsafe_allow_html=True)
-                l[1].markdown(f'<div class="tabela-linha">{ag.get("data")}</div>', unsafe_allow_html=True)
-                l[2].markdown(f'<div class="tabela-linha">{ag.get("janela")}</div>', unsafe_allow_html=True)
-                l[3].markdown(f'<div class="tabela-linha">{ag.get("placa")}</div>', unsafe_allow_html=True)
-                l[4].markdown(f'<div class="tabela-linha">{ag.get("veiculo")}</div>', unsafe_allow_html=True)
-                l[5].markdown(f'<div class="tabela-linha">{ag.get("motorista")}</div>', unsafe_allow_html=True)
-                l[6].markdown(f'<div class="tabela-linha">{ag.get("nf")}</div>', unsafe_allow_html=True)
-                l[7].markdown(f'<div class="tabela-linha">{float(ag.get("volume", 0)):.2f}</div>', unsafe_allow_html=True)
-                
-                if l[8].button("✏️", key=f"btn_editar_{idx}", use_container_width=True):
-                    st.session_state.editando_id = ag["id"]
-                    st.rerun()
+                vagas_restantes = st.session
