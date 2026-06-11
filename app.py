@@ -44,13 +44,13 @@ if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        # Imagem Portuária com foco em balsa e derivados de petróleo / logística pesada
-        st.image("https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=1325&auto=format&fit=crop", 
-                 caption="ZION TECNOLOGIA - TERMINAL PORTUÁRIO DE DERIVADOS", use_container_width=True)
+        # Imagem Portuária Marítima Profissional de Carga e Derivados
+        st.image("https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=1470&auto=format&fit=crop", 
+                 caption="ZION TECNOLOGIA - TERMINAL PORTUÁRIO MARÍTIMO", use_container_width=True)
         
         st.markdown("""
             <div style="background-color: #0B192C; padding: 20px; border-radius: 10px; text-align: center; color: white; font-family: sans-serif;">
-                <h2 style="margin:0; padding-bottom:5px;">CONTROL DE ACESSO</h2>
+                <h2 style="margin:0; padding-bottom:5px;">CONTROLE DE ACESSO</h2>
                 <p style="margin:0; opacity:0.8;">Painel de Controle de Pátio e Agendamentos</p>
             </div>
         """, unsafe_allow_html=True)
