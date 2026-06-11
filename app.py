@@ -29,7 +29,7 @@ BALSAS_OPERACIONAIS = {
     "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
     "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
+    "SD XIV": {"capacidade": "1468.8 m³", "cte_meta": 24}, 
     "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
@@ -40,6 +40,11 @@ BALSAS_OPERACIONAIS = {
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
     "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
+
+# Tratamento para garantir consistência de chaves internas
+for balsa, dados in BALSAS_OPERACIONAIS.items():
+    if "cts_meta" not in dados and "cte_meta" in dados:
+        BALSAS_OPERACIONAIS[balsa]["cts_meta"] = dados["cte_meta"]
 
 # =================================================================================
 # CONTROLE DE ACESSO E USUÁRIOS
@@ -79,7 +84,7 @@ if not st.session_state.autenticado:
             if os.path.exists(caminho_alternativo):
                 st.image(caminho_alternativo, use_container_width=True)
             else:
-                st.warning("⚠️ Imagem do cabeçalho não encontrada na raiz do projeto.")
+                st.image("image_12249a.png", use_container_width=True)
             
         with st.container(border=True):
             user = st.text_input("Usuário / Funcionário")
@@ -99,9 +104,6 @@ if "db_agendamentos" not in st.session_state:
 
 if "cotas_consumidas" not in st.session_state:
     st.session_state.cotas_consumidas = {}
-
-if "modo_edicao_m1" not in st.session_state:
-    st.session_state.modo_edicao_m1 = True
 
 if "grade_trabalho" not in st.session_state:
     st.session_state.grade_trabalho = []
@@ -170,7 +172,7 @@ aba1, aba2, aba3 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: INTELIGÊNCIA DE CÁLCULO E AJUSTE SIMÉTRICO AUTOMÁTICO
+# MÓDULO 1: INTELIGÊNCIA DE CÁLCULO TOTALMENTE AUTOMÁTICO
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1.2, 2])
@@ -178,26 +180,11 @@ with aba1:
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
         
-        c_btn1, c_btn2 = st.columns(2)
-        with c_btn1:
-            if st.button("⚙️ EDITAR PARÂMETROS", use_container_width=True):
-                st.session_state.modo_edicao_m1 = True
-                st.rerun()
-        with c_btn2:
-            if st.button("💾 LOCK / SALVAR", use_container_width=True):
-                if st.session_state.grade_trabalho:
-                    st.session_state.grade_publicada = {
-                        "balsa": st.session_state.get("m1_balsa", "SD IV"),
-                        "data": st.session_state.get("m1_data", datetime.today()).strftime("%d/%m/%Y"),
-                        "janelas": st.session_state.grade_trabalho
-                    }
-                    st.success("✅ Nova estrutura salva e publicada com sucesso!")
-
-        st.markdown("---")
+        # Seleção de balsa sempre ativa
+        balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa")
         
-        balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa", disabled=not st.session_state.modo_edicao_m1)
         capacidade_nominal = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
-        cts_meta_original = BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"]
+        exigencia_cts = int(BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"])
         
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
         
@@ -205,23 +192,25 @@ with aba1:
             "Data de Vigência", 
             datetime(2026, 6, 12), 
             key="m1_data", 
-            format="DD/MM/YYYY",
-            disabled=not st.session_state.modo_edicao_m1
+            format="DD/MM/YYYY"
         )
         
         st.markdown("**Período de Chegada na ETC:**")
         c_hora_ini, c_hora_fim = st.columns(2)
-        with c_hora_ini: h_ini_str = st.selectbox("A partir de:", ["06:00", "07:00", "08:00", "09:00"], index=0, disabled=not st.session_state.modo_edicao_m1)
-        with c_hora_fim: h_fim_str = st.selectbox("Até as:", ["14:00", "16:00", "18:00", "20:00", "22:00"], index=2, disabled=not st.session_state.modo_edicao_m1)
+        with c_hora_ini: h_ini_str = st.selectbox("A partir de:", ["06:00", "07:00", "08:00", "09:00"], index=0)
+        with c_hora_fim: h_fim_str = st.selectbox("Até as:", ["14:00", "16:00", "18:00", "20:00", "22:00"], index=2)
             
-        intervalo_opcao = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0, disabled=not st.session_state.modo_edicao_m1)
+        intervalo_opcao = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0)
         passo_horas = 1 if intervalo_opcao == "1 hora" else 2
         
-        qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=2, disabled=not st.session_state.modo_edicao_m1)
-        exigencia_cts = st.number_input("Exigência (CTS)", min_value=1, value=int(cts_meta_original), key="m1_exigencia", disabled=not st.session_state.modo_edicao_m1)
+        qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=3)
         
-        chave_verificacao = f"{balsa_sel}_{qtd_janelas_solicitadas}_{exigencia_cts}_{h_ini_str}_{h_fim_str}"
-        if st.session_state.modo_edicao_m1 and st.session_state.get("ultima_chave_config") != chave_verificacao:
+        # Caixa informativa exibindo o CTS de forma dinâmica e automatizada
+        st.metric(label="Exigência de Células de Trabalho (CTS Automático)", value=f"{exigencia_cts} CTs")
+
+        # GERAÇÃO E RECALCULO AUTOMÁTICO COMPLETO DA GRADE
+        chave_verificacao = f"{balsa_sel}_{qtd_janelas_solicitadas}_{exigencia_cts}_{h_ini_str}_{h_fim_str}_{intervalo_opcao}"
+        if st.session_state.get("ultima_chave_config") != chave_verificacao:
             lista_janelas_calculadas = []
             fmt = "%H:%M"
             dt_atual = datetime.strptime(h_ini_str, fmt)
@@ -247,8 +236,18 @@ with aba1:
             st.session_state.grade_trabalho = nova_grade
             st.session_state.ultima_chave_config = chave_verificacao
 
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("💾 PUBLICAR E CONFIGURAR GRADE", use_container_width=True):
+            if st.session_state.grade_trabalho:
+                st.session_state.grade_publicada = {
+                    "balsa": balsa_sel,
+                    "data": data_vigencia.strftime("%d/%m/%Y"),
+                    "janelas": st.session_state.grade_trabalho
+                }
+                st.success("✅ Estrutura de vagas fixada e enviada para o Portal do Cliente!")
+
     with col_dist:
-        st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas e Ajuste Dinâmico Autocompensável</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas Operacionais</div>', unsafe_allow_html=True)
         
         if st.session_state.grade_trabalho:
             total_janelas = len(st.session_state.grade_trabalho)
@@ -260,13 +259,14 @@ with aba1:
                     st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
                     
                     valor_atual = int(jan["vagas_o"])
+                    # Campo numérico interativo e responsivo
                     novo_valor = st.number_input(
                         "Vagas", min_value=0, max_value=int(exigencia_cts), 
                         value=valor_atual, key=f"input_janela_{jan['id']}", 
-                        label_visibility="collapsed", disabled=not st.session_state.modo_edicao_m1
+                        label_visibility="collapsed"
                     )
                     
-                    if novo_valor != valor_atual and st.session_state.modo_edicao_m1:
+                    if novo_valor != valor_atual:
                         st.session_state.grade_trabalho[idx]["vagas_o"] = novo_valor
                         
                         soma_atual = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
@@ -294,9 +294,9 @@ with aba1:
             soma_vagas_totais = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
             st.markdown("<br>", unsafe_allow_html=True)
             if soma_vagas_totais == exigencia_cts:
-                st.success(f"🎯 **Sincronismo Perfeito:** Total Distribuído: **{soma_vagas_totais}** de **{exigencia_cts}** exigidos pelo CTS.")
+                st.success(f"🎯 **Sincronismo Perfeito:** Total Distribuído: **{soma_vagas_totais}** de **{exigencia_cts}** exigidos pelo CTS da {balsa_sel}.")
             else:
-                st.error(f"⚠️ **Aviso de Descompasso:** Total de vagas está em {soma_vagas_totais}, mas a exigência pede {exigencia_cts}. Ajuste as janelas manualmente.")
+                st.error(f"⚠️ **Descompasso:** Sistema distribuindo {soma_vagas_totais} vagas. Ajustando balanço para bater a meta de {exigencia_cts}.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-header-container">📋 Ofertas Ativas no Turno Corrente</div>', unsafe_allow_html=True)
@@ -316,7 +316,7 @@ with aba1:
             })
         st.dataframe(pd.DataFrame(dados_tabela), use_container_width=True, hide_index=True)
     else:
-        st.info("Nenhuma grade foi fixada/salva ainda. Defina os parâmetros e clique em 'LOCK / SALVAR'.")
+        st.info("Nenhuma grade foi fixada/salva ainda. Defina os parâmetros e clique em 'PUBLICAR E CONFIGURAR GRADE'.")
 
 # =================================================================================
 # MÓDULO 2: PORTAL DE AGENDAMENTO COM VALIDAÇÃO DE DISPONIBILIDADE REAL
@@ -410,9 +410,12 @@ with aba2:
             
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
+            
+            # Geração de ID dinâmico e seguro anti-duplicação baseado em timestamp
+            chave_botao_unica = f"btn_download_{ag['id']}_{int(datetime.now().timestamp())}"
             l[7].download_button(
                 label="📄 Imprimir Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
-                mime="image/png", key=f"qr_down_{ag['id']}", use_container_width=True
+                mime="image/png", key=chave_botao_unica, use_container_width=True
             )
 
 # =================================================================================
