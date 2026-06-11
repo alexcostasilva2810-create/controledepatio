@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 import qrcode
 from io import BytesIO
 import os
@@ -34,7 +34,7 @@ BALSAS_OPERACIONAIS = {
     "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, 
-    "SD XX": {"capacidade": "2998.8 m³", "qs_meta": 49},
+    "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
     "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
@@ -70,18 +70,16 @@ if not st.session_state.autenticado:
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
         
-        # Nome exato do arquivo que está no seu GitHub raiz
         caminho_imagem = "Gemini_Generated_Image_mz1weumz1weumz1w.png"
         
         if os.path.exists(caminho_imagem):
             st.image(caminho_imagem, use_container_width=True)
         else:
-            # Caso o Streamlit Cloud precise do caminho absoluto do container
             caminho_alternativo = os.path.join(os.path.dirname(__file__), caminho_imagem)
             if os.path.exists(caminho_alternativo):
                 st.image(caminho_alternativo, use_container_width=True)
             else:
-                st.warning("⚠️ Imagem carregada do Gemini não encontrada na raiz. Verifique se o nome do arquivo no ambiente local está idêntico ao do repositório.")
+                st.warning("⚠️ Imagem do cabeçalho não encontrada na raiz do projeto.")
             
         with st.container(border=True):
             user = st.text_input("Usuário / Funcionário")
@@ -101,6 +99,12 @@ if "db_agendamentos" not in st.session_state:
 
 if "cotas_consumidas" not in st.session_state:
     st.session_state.cotas_consumidas = {}
+
+if "modo_edicao_m1" not in st.session_state:
+    st.session_state.modo_edicao_m1 = True
+
+if "grade_trabalho" not in st.session_state:
+    st.session_state.grade_trabalho = []
 
 # ---------------------------------------------------------------------------------
 # FUNÇÕES UTILITÁRIAS E QR CODE
@@ -166,74 +170,134 @@ aba1, aba2, aba3 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: INTELIGÊNCIA DE CÁLCULO ORIGINAL E DISTRIBUIÇÃO AUTOMÁTICA
+# MÓDULO 1: INTELIGÊNCIA DE CÁLCULO E AJUSTE SIMÉTRICO AUTOMÁTICO
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1.2, 2])
     
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
-        balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa")
         
+        # Botões de Controle de Fluxo de Edição
+        c_btn1, c_btn2 = st.columns(2)
+        with c_btn1:
+            if st.button("⚙️ EDITAR PARÂMETROS", use_container_width=True):
+                st.session_state.modo_edicao_m1 = True
+        with c_btn2:
+            if st.button("💾 LOCK / SALVAR", use_container_width=True):
+                st.session_state.modo_edicao_m1 = False
+                if st.session_state.grade_trabalho:
+                    st.session_state.grade_publicada = {
+                        "balsa": st.session_state.get("m1_balsa", "SD IV"),
+                        "data": st.session_state.get("m1_data", datetime.today()).strftime("%d/%m/%Y"),
+                        "janelas": st.session_state.grade_trabalho
+                    }
+                    st.success("✅ Nova estrutura salva e publicada com sucesso!")
+
+        st.markdown("---")
+        
+        # Parâmetros de Entrada
+        balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa", disabled=not st.session_state.modo_edicao_m1)
         capacidade_nominal = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
         cts_meta_original = BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"]
         
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
-        data_vigencia = st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data")
+        
+        # Data Formatada e com Localidade em Português
+        data_vigencia = st.date_input("Data de Vigência (DD/MM/AAAA)", datetime(2026, 6, 12), key="m1_data", disabled=not st.session_state.modo_edicao_m1)
         
         st.markdown("**Período de Chegada na ETC:**")
         c_hora_ini, c_hora_fim = st.columns(2)
-        with c_hora_ini: h_ini_str = st.selectbox("A partir de:", ["06:00", "07:00", "08:00", "09:00"], index=0)
-        with c_hora_fim: h_fim_str = st.selectbox("Até as:", ["14:00", "16:00", "18:00", "20:00", "22:00"], index=2)
+        with c_hora_ini: h_ini_str = st.selectbox("A partir de:", ["06:00", "07:00", "08:00", "09:00"], index=0, disabled=not st.session_state.modo_edicao_m1)
+        with c_hora_fim: h_fim_str = st.selectbox("Até as:", ["14:00", "16:00", "18:00", "20:00", "22:00"], index=2, disabled=not st.session_state.modo_edicao_m1)
             
-        intervalo_opcao = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0)
+        intervalo_opcao = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0, disabled=not st.session_state.modo_edicao_m1)
         passo_horas = 1 if intervalo_opcao == "1 hora" else 2
         
-        qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=2)
-        exigencia_cts = st.number_input("Exigência (CTS)", min_value=1, value=int(cts_meta_original))
+        qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=2, disabled=not st.session_state.modo_edicao_m1)
+        exigencia_cts = st.number_input("Exigência (CTS)", min_value=1, value=int(cts_meta_original), key="m1_exigencia", disabled=not st.session_state.modo_edicao_m1)
         
-        # --- MOTOR DE INTELIGÊNCIA DA DISTRIBUIÇÃO DE JANELAS ---
-        lista_janelas_calculadas = []
-        fmt = "%H:%M"
-        dt_atual = datetime.strptime(h_ini_str, fmt)
-        dt_maxima = datetime.strptime(h_fim_str, fmt)
-        
-        for i in range(qtd_janelas_solicitadas):
-            dt_proxima = dt_atual + timedelta(hours=passo_horas)
-            if dt_atual >= dt_maxima:
-                break
-            str_janela = f"{dt_atual.strftime(fmt)} às {dt_proxima.strftime(fmt)}"
-            lista_janelas_calculadas.append({"id": i + 1, "horario": str_janela})
-            dt_atual = dt_proxima
+        # Geração Inicial Base da Grade Estática de Trabalho
+        if st.session_state.modo_edicao_m1:
+            lista_janelas_calculadas = []
+            fmt = "%H:%M"
+            dt_atual = datetime.strptime(h_ini_str, fmt)
+            dt_maxima = datetime.strptime(h_fim_str, fmt)
             
-        total_janelas_reais = len(lista_janelas_calculadas)
-        vagas_por_janela_base = exigencia_cts // total_janelas_reais if total_janelas_reais > 0 else 0
-        resto_vagas = exigencia_cts % total_janelas_reais if total_janelas_reais > 0 else 0
+            for i in range(qtd_janelas_solicitadas):
+                dt_proxima = dt_atual + timedelta(hours=passo_horas)
+                if dt_atual >= dt_maxima:
+                    break
+                str_janela = f"{dt_atual.strftime(fmt)} às {dt_proxima.strftime(fmt)}"
+                lista_janelas_calculadas.append({"id": i + 1, "horario": str_janela})
+                dt_atual = dt_proxima
+                
+            total_janelas_reais = len(lista_janelas_calculadas)
+            vagas_por_janela_base = exigencia_cts // total_janelas_reais if total_janelas_reais > 0 else 0
+            resto_vagas = exigencia_cts % total_janelas_reais if total_janelas_reais > 0 else 0
+            
+            # Reconstrói a lista temporária distribuindo o resto para bater com o CTS exato
+            nova_grade = []
+            for idx, jan in enumerate(lista_janelas_calculadas):
+                vagas_calculadas = vagas_por_janela_base + (1 if idx < resto_vagas else 0)
+                nova_grade.append({"id": jan["id"], "horario": jan["horario"], "vagas_o": int(vagas_calculadas)})
+            st.session_state.grade_trabalho = nova_grade
 
     with col_dist:
-        st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas Calculadas Simetricamente</div>', unsafe_allow_html=True)
-        cols_janelas = st.columns(4)
+        st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas e Ajuste Dinâmico Autocompensável</div>', unsafe_allow_html=True)
         
-        grade_temporaria = []
-        for idx, jan in enumerate(lista_janelas_calculadas):
-            col_id = idx % 4
-            vagas_calculadas = vagas_por_janela_base + (1 if idx < resto_vagas else 0)
+        if st.session_state.grade_trabalho:
+            total_janelas = len(st.session_state.grade_trabalho)
+            cols_janelas = st.columns(4)
             
-            with cols_janelas[col_id]:
-                st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
-                vagas_final = st.number_input("Vagas", min_value=0, value=int(vagas_calculadas), key=f"v_m1_{jan['id']}", label_visibility="collapsed")
-                grade_temporaria.append({"id": jan["id"], "horario": jan["horario"], "vagas_o": vagas_final})
-                
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔄 PUBLICAR E CONFIGURAR GRADE OPERACIONAL", key="btn_publicar_grade", use_container_width=True):
-            st.session_state.grade_publicada = {
-                "balsa": balsa_sel,
-                "data": data_vigencia.strftime("%d/%m/%Y"),
-                "janelas": grade_temporaria
-            }
-            st.success(f"✅ Grade da balsa {balsa_sel} calculada e publicada com sucesso!")
+            # Loop de renderização e captura de alterações manuais
+            for idx, jan in enumerate(st.session_state.grade_trabalho):
+                col_id = idx % 4
+                with cols_janelas[col_id]:
+                    st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
+                    
+                    # Elemento Input de Vagas
+                    valor_atual = int(jan["vagas_o"])
+                    novo_valor = st.number_input(
+                        "Vagas", min_value=0, max_value=int(exigencia_cts), 
+                        value=valor_atual, key=f"input_janela_{jan['id']}", 
+                        label_visibility="collapsed", disabled=not st.session_state.modo_edicao_m1
+                    )
+                    
+                    # Regra de Negócio: Se o usuário mexer em uma janela, compensa automaticamente nas outras
+                    if novo_valor != valor_atual and st.session_state.modo_edicao_m1:
+                        st.session_state.grade_trabalho[idx]["vagas_o"] = novo_valor
+                        
+                        # Calcula a diferença que sobrou/falta para bater o CTS total
+                        soma_atual = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
+                        diferenca = exigencia_cts - soma_atual
+                        
+                        # Define quais outras janelas vão absorver a diferença (excluindo a que mudou)
+                        indices_para_ajuste = [i for i in range(total_janelas) if i != idx]
+                        
+                        if indices_para_ajuste and diferenca != 0:
+                            # Distribui o saldo remanescente de forma inteira e balanceada
+                            passo_compensacao = 1 if diferenca > 0 else -1
+                            while diferenca != 0:
+                                for i in indices_para_ajuste:
+                                    if diferenca == 0:
+                                        break
+                                    # Impede valores negativos nas outras janelas durante a subtração
+                                    if passo_compensacao == -1 and st.session_state.grade_trabalho[i]["vagas_o"] <= 0:
+                                        continue
+                                    st.session_state.grade_trabalho[i]["vagas_o"] += passo_compensacao
+                                    diferenca -= passo_compensacao
+                            st.rerun()
 
-    # Visão da Tabela de Ofertas Vigentes
+            # Painel Informativo de Auditoria de Totalização
+            soma_vagas_totais = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
+            st.markdown("<br>", unsafe_allow_html=True)
+            if soma_vagas_totais == exigencia_cts:
+                st.success(f"🎯 **Sincronismo Perfeito:** Total Distribuído: **{soma_vagas_totais}** de **{exigencia_cts}** exigidos pelo CTS.")
+            else:
+                st.error(f"⚠️ **Aviso de Descompasso:** Total de vagas está em {soma_vagas_totais}, mas a exigência pede {exigencia_cts}.")
+
+    # Visão da Tabela de Ofertas Vigentes Ativas
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-header-container">📋 Ofertas Ativas no Turno Corrente</div>', unsafe_allow_html=True)
     
@@ -252,7 +316,7 @@ with aba1:
             })
         st.dataframe(pd.DataFrame(dados_tabela), use_container_width=True, hide_index=True)
     else:
-        st.info("Nenhuma grade foi gerada ainda. Configure os parâmetros acima e publique.")
+        st.info("Nenhuma grade foi fixada/salva ainda. Defina os parâmetros e clique em 'LOCK / SALVAR'.")
 
 # =================================================================================
 # MÓDULO 2: PORTAL DE AGENDAMENTO COM VALIDAÇÃO DE DISPONIBILIDADE REAL
@@ -367,7 +431,7 @@ with aba3:
                 try:
                     linhas = codigo_scaneado.split("\n")
                     id_localizado = None
-                    for linha in linhas:
+                    for linha in lines:
                         if "ID:" in linha:
                             id_localizado = int(linha.split(":")[1].strip())
                             break
