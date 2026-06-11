@@ -178,7 +178,6 @@ with aba1:
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
         
-        # Botões de Controle de Fluxo de Edição
         c_btn1, c_btn2 = st.columns(2)
         with c_btn1:
             if st.button("⚙️ EDITAR PARÂMETROS", use_container_width=True):
@@ -196,14 +195,12 @@ with aba1:
 
         st.markdown("---")
         
-        # Parâmetros de Entrada
         balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa", disabled=not st.session_state.modo_edicao_m1)
         capacidade_nominal = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
         cts_meta_original = BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"]
         
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
         
-        # AJUSTADO: Adicionado 'format="DD/MM/YYYY"' para renderizar e travar o padrão PT-BR na tela
         data_vigencia = st.date_input(
             "Data de Vigência", 
             datetime(2026, 6, 12), 
@@ -223,7 +220,6 @@ with aba1:
         qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=2, disabled=not st.session_state.modo_edicao_m1)
         exigencia_cts = st.number_input("Exigência (CTS)", min_value=1, value=int(cts_meta_original), key="m1_exigencia", disabled=not st.session_state.modo_edicao_m1)
         
-        # Geração Inicial Base da Grade Estática de Trabalho
         if st.session_state.modo_edicao_m1:
             lista_janelas_calculadas = []
             fmt = "%H:%M"
@@ -255,6 +251,7 @@ with aba1:
             total_janelas = len(st.session_state.grade_trabalho)
             cols_janelas = st.columns(4)
             
+            # ATUALIZADO: Lógica de compensação otimizada sem disparar st.rerun() no loop de inputs
             for idx, jan in enumerate(st.session_state.grade_trabalho):
                 col_id = idx % 4
                 with cols_janelas[col_id]:
@@ -285,7 +282,7 @@ with aba1:
                                         continue
                                     st.session_state.grade_trabalho[i]["vagas_o"] += passo_compensacao
                                     diferenca -= passo_compensacao
-                            st.rerun()
+                            # Removido st.rerun() daqui para eliminar a lentidão por múltiplos loops de refresh
 
             soma_vagas_totais = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
             st.markdown("<br>", unsafe_allow_html=True)
