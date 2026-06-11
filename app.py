@@ -1,7 +1,13 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from fpdf import FPDF
+import io
+
+# Importações seguras do ReportLab (Padrão de mercado para Streamlit)
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
@@ -11,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. ESTILIZAÇÃO VISUAL AVANÇADA (CSS + CONDICIONAL)
+# 2. ESTILIZAÇÃO VISUAL (CSS)
 st.markdown("""
     <style>
     .main .block-container {
@@ -59,45 +65,61 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. CONSTRUTOR DE EMISSÃO DO PDF REAL
+# ---------------------------------------------------------------------------------
+# 3. GERADOR DE PDF PROFISSIONAL COM REPORTLAB (NUNCA DA ERRO DE DEFINIÇÃO)
+# ---------------------------------------------------------------------------------
 def gerar_comprovante_pdf(balsa, data, janela, placa, veiculo, motorista, nf, volume, produto):
-    try:
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", "B", 16)
-        pdf.cell(190, 10, "ZION TECNOLOGIA - COMPROVANTE DE AGENDAMENTO", ln=True, align="C")
-        pdf.ln(5)
-        pdf.set_font("Arial", "", 10)
-        pdf.cell(190, 5, f"Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", ln=True, align="R")
-        pdf.line(10, 32, 200, 32)
-        pdf.ln(8)
-        
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(190, 8, "1. DADOS DA PROGRAMAÇÃO LOGÍSTICA", ln=True)
-        pdf.set_font("Arial", "", 11)
-        pdf.cell(63, 8, f"Balsa: {balsa}", border=1)
-        pdf.cell(63, 8, f"Data: {data}", border=1)
-        pdf.cell(64, 8, f"Janela: {janela}", border=1, ln=True)
-        pdf.ln(5)
-        
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(190, 8, "2. INFORMAÇÕES DO VEÍCULO E CARGA", ln=True)
-        pdf.set_font("Arial", "", 11)
-        pdf.cell(95, 8, f"Motorista: {motorista}", border=1)
-        pdf.cell(95, 8, f"Produto: {produto}", border=1, ln=True)
-        pdf.cell(47, 8, f"Placa: {placa}", border=1)
-        pdf.cell(48, 8, f"Veículo: {veiculo}", border=1)
-        pdf.cell(95, 8, f"Volume: {float(volume):.2f} m³", border=1, ln=True)
-        
-        return pdf.output(dest='S').encode('latin-1')
-    except Exception:
-        return b"%PDF-1.4 ... erro estrutural genérico ..."
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    # Estilos customizados
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, leading=20, alignment=1, textColor=colors.HexColor('#0B192C'))
+    header_style = ParagraphStyle('HeaderStyle', parent=styles['Heading2'], fontSize=12, leading=16, textColor=colors.HexColor('#343A40'), spaceBefore=10, spaceAfter=5)
+    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=10, leading=14)
+    
+    # Conteúdo do PDF
+    story.append(Paragraph("<b>ZION TECNOLOGIA - COMPROVANTE DE AGENDAMENTO</b>", title_style))
+    story.append(Spacer(1, 15))
+    story.append(Paragraph(f"<b>Data de Emissão:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", normal_style))
+    story.append(Spacer(1, 10))
+    
+    # Tabela 1: Programação
+    story.append(Paragraph("<b>1. DADOS DA PROGRAMAÇÃO LOGÍSTICA</b>", header_style))
+    dados_p = [
+        [Paragraph(f"<b>Balsa:</b> {balsa}", normal_style), 
+         Paragraph(f"<b>Data:</b> {data}", normal_style), 
+         Paragraph(f"<b>Janela:</b> {janela}", normal_style)]
+    ]
+    t1 = Table(dados_p, colWidths=[180, 180, 180])
+    t1.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 1, colors.grey), ('INNERGRID', (0,0), (-1,-1), 0.5, colors.lightgrey), ('PADDING', (0,0), (-1,-1), 6)]))
+    story.append(t1)
+    story.append(Spacer(1, 15))
+    
+    # Tabela 2: Veículo e Carga
+    story.append(Paragraph("<b>2. INFORMAÇÕES DO VEÍCULO E CARGA</b>", header_style))
+    dados_v = [
+        [Paragraph(f"<b>Motorista:</b> {motorista}", normal_style), Paragraph(f"<b>Produto:</b> {produto}", normal_style)],
+        [Paragraph(f"<b>Placa:</b> {placa}", normal_style), Paragraph(f"<b>Veículo:</b> {veiculo}", normal_style)],
+        [Paragraph(f"<b>Nº NF:</b> {nf}", normal_style), Paragraph(f"<b>Volume:</b> {float(volume):.2f} m³", normal_style)]
+    ]
+    t2 = Table(dados_v, colWidths=[270, 270])
+    t2.setStyle(TableStyle([('BOX', (0,0), (-1,-1), 1, colors.grey), ('INNERGRID', (0,0), (-1,-1), 0.5, colors.lightgrey), ('PADDING', (0,0), (-1,-1), 6)]))
+    story.append(t2)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
 
-# 4. INICIALIZAÇÃO DE VARIÁVEIS DE MEMÓRIA (SESSION STATE)
+# ---------------------------------------------------------------------------------
+# 4. BANCO DE DADOS EM MEMÓRIA (SESSION STATE)
+# ---------------------------------------------------------------------------------
 if "ofertas" not in st.session_state:
     st.session_state.ofertas = [
         {"id": 1, "horario": "06:00 às 07:00", "vagas_o": 5, "cotas_o": 2},
-        {"id": 2, "horario": "07:00 às 08:00", "vagas_o": 2, "cotas_o": 2},  # Exemplo esgotada
+        {"id": 2, "horario": "07:00 às 08:00", "vagas_o": 2, "cotas_o": 2},
         {"id": 3, "horario": "08:00 às 09:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 4, "horario": "09:00 às 10:00", "vagas_o": 2, "cotas_o": 0},
         {"id": 5, "horario": "10:00 às 11:00", "vagas_o": 2, "cotas_o": 0},
@@ -116,7 +138,7 @@ if "db_agendamentos" not in st.session_state:
         }
     ]
 
-# Título do Painel Coorporativo
+# Painel Superior Principal
 st.markdown("""
     <div class="top-banner">
         <h1>ZION TECNOLOGIA - LOGÍSTICA</h1>
@@ -130,7 +152,7 @@ aba1, aba2 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: GESTÃO DE DISPONIBILIDADE
+# MÓDULO 1
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1, 2])
@@ -141,10 +163,10 @@ with aba1:
         exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=25)
         st.selectbox("Hora Início", ["06:00", "07:00", "08:00"])
         if st.button("🔴 PUBLICAR DISPONIBILIDADE", use_container_width=True):
-            st.success("Configuração de janelas atualizada!")
+            st.success("Configuração atualizada!")
 
     with col_dist:
-        st.markdown(f'<div class="section-header-container">⏱️ Distribuição Manual de Vagas</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas</div>', unsafe_allow_html=True)
         cols_janelas = st.columns(4)
         for idx, of in enumerate(st.session_state.ofertas):
             col_id = idx % 4
@@ -155,19 +177,15 @@ with aba1:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="section-header-container">📋 Ofertas Vigentes no Sistema (Linha Verde = Esgotado)</div>', unsafe_allow_html=True)
     
-    # Construção do DataFrame de Exibição das Ofertas
     df_of = pd.DataFrame(st.session_state.ofertas)
     df_of.columns = ['IDENTIFICADOR', 'HORÁRIO DE ATENDIMENTO', 'VAGAS OFERTADAS', 'COTAS OCUPADAS']
     df_of['VAGAS DISPONÍVEIS'] = df_of['VAGAS OFERTADAS'] - df_of['COTAS OCUPADAS']
     
-    # FUNÇÃO CORRETIVA DE COR: Destaca em verde apenas quando as vagas disponíveis chegam a zero
     def aplicar_cor_vagas(row):
         return ['background-color: #D4EDDA; color: #155724; font-weight: bold;'] * len(row) if row['VAGAS DISPONÍVEIS'] <= 0 else [''] * len(row)
 
-    df_estilizado = df_of.style.apply(aplicar_cor_vagas, axis=1)
-    st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
+    st.dataframe(df_of.style.apply(aplicar_cor_vagas, axis=1), use_container_width=True, hide_index=True)
 
-    # Visão Geral da Portaria
     st.markdown('<div class="section-header-container">🗂️ VEÍCULOS AGENDADOS (Visão Geral de Portaria)</div>', unsafe_allow_html=True)
     if st.session_state.db_agendamentos:
         registros_m1 = []
@@ -192,7 +210,7 @@ with aba1:
                 )
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (CLIENTE FS)
+# MÓDULO 2
 # =================================================================================
 with aba2:
     col_cadastro, col_cards = st.columns([1, 1.3])
@@ -201,11 +219,10 @@ with aba2:
         with st.form("form_novo_agendamento", clear_on_submit=True):
             st.selectbox("1. SELECIONE A EMBARCAÇÃO / PROGRAMAÇÃO", ["SD II - Vigência: 12/06/2026"])
             
-            # Formatação seletiva de opções no Selectbox mostrando o status real de vagas restantes
             opcoes_seletor = []
             for of in st.session_state.ofertas:
                 restantes = of['vagas_o'] - of['cotas_o']
-                status_texto = f"({restantes} vagas restantes)" if restantes > 0 else "(ESGOTADA)"
+                status_texto = f"({restantes} vagas)" if restantes > 0 else "(ESGOTADA)"
                 opcoes_seletor.append(f"Janela #{of['id']} [{of['horario']}] {status_texto}")
                 
             janela_selecionada = st.selectbox("2. ESCOLHA O HORÁRIO DA JANELA", opcoes_seletor)
@@ -226,19 +243,14 @@ with aba2:
             submetido = st.form_submit_button("🔒 CONFIRMAR AGENDAMENTO FS")
             
             if submetido:
-                # Extrai o ID numérico da janela a partir da string do seletor
                 id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
                 index_janela = next((index for (index, d) in enumerate(st.session_state.ofertas) if d["id"] == id_janela_sel), None)
-                
-                # Regra de Verificação de Limite de Vagas
                 vagas_restantes = st.session_state.ofertas[index_janela]['vagas_o'] - st.session_state.ofertas[index_janela]['cotas_o']
                 
                 if vagas_restantes <= 0:
-                    st.error("❌ Erro: Esta janela horária já se encontra esgotada. Selecione um horário disponível.")
+                    st.error("❌ Erro: Esta janela horária está esgotada!")
                 else:
-                    # EFETUA O ABATIMENTO: Incrementa a cota ocupada do banco de dados interno
                     st.session_state.ofertas[index_janela]['cotas_o'] += 1
-                    
                     janela_limpa = st.session_state.ofertas[index_janela]['horario']
                     nome_documento = arq_upload.name if arq_upload is not None else f"NF_{nf_in}.pdf"
                     
@@ -253,7 +265,7 @@ with aba2:
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
                         "arquivo_nome": nome_documento, "conteudo_bytes": binario_pdf
                     })
-                    st.success("✅ Agendamento registrado e vaga debitada da cota!")
+                    st.success("✅ Agendamento registrado com sucesso!")
                     st.rerun()
 
     with col_cards:
