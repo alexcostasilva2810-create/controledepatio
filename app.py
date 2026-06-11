@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # =================================================================================
-# ESPAÇO PARA CADASTRO DE FUNCIONÁRIOS (ADICIONE NOVOS AQUI NO FUTURO)
+# ESPAÇO PARA CADASTRO DE FUNCIONÁRIOS (ADICIONE OU ALTERE OS USUÁRIOS AQUI)
 # =================================================================================
 USUARIOS_CADASTRADOS = {
     "admin": "zion123",        # Usuário: admin | Senha: zion123
@@ -19,7 +19,9 @@ USUARIOS_CADASTRADOS = {
     "fs_cliente": "fs01"       # Usuário: fs_cliente | Senha: fs01
 }
 
+# ---------------------------------------------------------------------------------
 # CONTROLE DE SESSÃO E LOGIN
+# ---------------------------------------------------------------------------------
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -35,31 +37,33 @@ def realizar_logout():
     st.session_state.autenticado = False
     st.rerun()
 
-# TELA DE ABERTURA (SÓ CONCEDE ACESSO SE LOGADO)
+# ---------------------------------------------------------------------------------
+# TELA DE CAPA / ABERTURA (SÓ LIBERA O SISTEMA SE AUTENTICADO)
+# ---------------------------------------------------------------------------------
 if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        # Imagem Portuária na Capa
-        st.image("https://images.unsplash.com/photo-1578575437130-527eed3abbec?q=80&w=1470&auto=format&fit=crop", 
-                 caption="ZION TECNOLOGIA - TERMINAL LOGÍSTICO", use_container_width=True)
+        # Imagem Portuária com foco em balsa e derivados de petróleo / logística pesada
+        st.image("https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?q=80&w=1325&auto=format&fit=crop", 
+                 caption="ZION TECNOLOGIA - TERMINAL PORTUÁRIO DE DERIVADOS", use_container_width=True)
         
         st.markdown("""
-            <div style="background-color: #0B192C; padding: 20px; border-radius: 10px; text-align: center; color: white;">
-                <h2>ACESSO AO SISTEMA DE PÁTIO</h2>
-                <p>Insira suas credenciais para continuar</p>
+            <div style="background-color: #0B192C; padding: 20px; border-radius: 10px; text-align: center; color: white; font-family: sans-serif;">
+                <h2 style="margin:0; padding-bottom:5px;">CONTROL DE ACESSO</h2>
+                <p style="margin:0; opacity:0.8;">Painel de Controle de Pátio e Agendamentos</p>
             </div>
         """, unsafe_allow_html=True)
         
         with st.container(border=True):
-            user = st.text_input("Usuário")
-            password = st.text_input("Senha", type="password")
-            if st.button("ENTRAR NO SISTEMA", use_container_width=True):
+            user = st.text_input("Usuário / Funcionário")
+            password = st.text_input("Senha de Acesso", type="password")
+            if st.button("ACESSAR OPERAÇÃO", use_container_width=True):
                 realizar_login(user, password)
-    st.stop()
+    st.stop()  # Trava o script aqui, impedindo a renderização do sistema sem login
 
 # =================================================================================
-# SISTEMA ORIGINAL INTEGRAL (SEM NENHUMA ALTERAÇÃO DE LOGICA OU LEIAUTE)
+# SISTEMA PRINCIPAL INTEGRAL (MANTIDO EXATAMENTE COMO ESTAVA)
 # =================================================================================
 
 # 2. ESTILIZAÇÃO VISUAL (CSS)
@@ -153,11 +157,11 @@ if "db_agendamentos" not in st.session_state:
 if "editando_id" not in st.session_state:
     st.session_state.editando_id = None
 
-# Cabeçalho do Painel com botão de Sair na Barra Lateral
+# Cabeçalho com informações de login e botão para deslogar na barra lateral
 st.markdown(f"""
     <div class="top-banner">
         <h1>ZION TECNOLOGIA - LOGÍSTICA</h1>
-        <p>Painel Integrado de Controle de Pátio e Fluxo de Vagas | Usuário: {st.session_state.usuario_logado.upper()}</p>
+        <p>Painel Integrado de Controle de Pátio | Operador: {st.session_state.usuario_logado.upper()}</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -180,7 +184,7 @@ with aba1:
         st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data")
         exigencia_cts = st.number_input("Exigência (CTS)", min_value=0, value=25)
         if st.button("🔴 PUBLICAR DISPONIBILIDADE", use_container_width=True):
-            st.success("Configuração updated!")
+            st.success("Configuração atualizada com sucesso!")
 
     with col_dist:
         st.markdown(f'<div class="section-header-container">⏱️ Distribuição de Vagas</div>', unsafe_allow_html=True)
@@ -239,7 +243,7 @@ with aba1:
             )
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (VISÃO HORIZONTAL ORIGINAL COM EDICÃO)
+# MÓDULO 2: PORTAL DE AGENDAMENTO (VISÃO HORIZONTAL COMPLETA COM EDICÃO)
 # =================================================================================
 with aba2:
     col_cadastro, col_tabela_fs = st.columns([1, 2.5])
@@ -296,7 +300,7 @@ with aba2:
                         "nf": nf_in, "volume": float(volume_in), "produto": produto_in,
                         "arquivo_nome": nome_documento, "conteudo_bytes": binario_doc
                     })
-                    st.success("✅ Agendamento registrado!")
+                    st.success("✅ Agendamento registrado com sucesso!")
                     st.rerun()
 
     with col_tabela_fs:
