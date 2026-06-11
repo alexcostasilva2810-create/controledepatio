@@ -68,7 +68,8 @@ if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.image("https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=1470&auto=format&fit=crop", use_container_width=True)
+        # Imagem atualizada conforme solicitado
+        st.image("https://raw.githubusercontent.com/alexcostasilva2810-create/controledepatio/main/image_591a5c.jpg", use_container_width=True)
         with st.container(border=True):
             user = st.text_input("Usuário / Funcionário")
             password = st.text_input("Senha de Acesso", type="password")
@@ -165,7 +166,7 @@ with aba1:
         cts_meta_original = BALSAS_OPERACIONAIS[balsa_sel]["cts_meta"]
         
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
-        data_vigencia = st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data")
+        data_vigencia = st.date_input("Data de Vigilência", datetime(2026, 6, 12), key="m1_data")
         
         st.markdown("**Período de Chegada na ETC:**")
         c_hora_ini, c_hora_fim = st.columns(2)
@@ -295,7 +296,6 @@ with aba2:
                         st.error("❌ Erro: Esta janela horária esgotou a disponibilidade física!")
                     else:
                         st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
-                        binario_doc = arq_upload.read() if arq_upload else b""
                         
                         novo_id = int(datetime.now().timestamp())
                         st.session_state.db_agendamentos.append({
@@ -354,7 +354,7 @@ with aba3:
                 try:
                     linhas = codigo_scaneado.split("\n")
                     id_localizado = None
-                    for linha in linhas:
+                    for linha in lines:
                         if "ID:" in linha:
                             id_localizado = int(linha.split(":")[1].strip())
                             break
@@ -380,7 +380,6 @@ with aba3:
 
     with col_manual:
         st.subheader("Check-in de Segurança Rápido")
-        # Correção do erro garantindo que as chaves existam na busca
         veiculos_nao_recebidos = [ag for ag in st.session_state.db_agendamentos if ag.get("chegada_efetiva") is None]
         
         if veiculos_nao_recebidos:
