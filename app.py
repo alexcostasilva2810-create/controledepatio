@@ -27,7 +27,7 @@ BALSAS_OPERACIONAIS = {
     "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
     "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
     "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
-    "SD XI": {"capacidade": "2325.6 m³", "xmax_meta": 38},
+    "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
     "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
     "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
@@ -134,6 +134,52 @@ def calcular_status_atraso(janela_str, horario_chegada_dt):
         return "✅ No Prazo"
     except:
         return "⚠️ Erro no cálculo"
+
+# =================================================================================
+# FUNÇÃO DE CALLBACK DE ALTA PRIORIDADE PARA SALVAMENTO DO MÓDULO 2
+# =================================================================================
+def salvar_agendamento_modulo2():
+    # Coleta segura dos inputs diretamente do session_state mapeado
+    b_ativa = st.session_state.grade_publicada.get("balsa")
+    d_ativa = st.session_state.grade_publicada.get("data")
+    janela_selecionada = st.session_state.get("m2_janela_sel")
+    
+    if not janela_selecionada:
+        st.session_state["m2_msg_erro"] = "Selecione uma janela horária válida."
+        return
+        
+    id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
+    janela_obj = next(j for j in st.session_state.grade_publicada["janelas"] if j["id"] == id_janela_sel)
+    janela_limpa = janela_obj["horario"]
+    
+    chave_consumo = f"{b_ativa}_{d_ativa}_{janela_limpa}"
+    consumidas = st.session_state.cotas_consumidas.get(chave_consumo, 0)
+    
+    if consumidas >= janela_obj["vagas_o"]:
+        st.session_state["m2_msg_erro"] = "Esta janela horária esgotou a disponibilidade física!"
+        return
+        
+    # Inserção direta e atômica na lista global de agendamentos
+    novo_id = int(time.time() * 1000)
+    st.session_state.db_agendamentos.append({
+        "id": novo_id,
+        "balsa": b_ativa,
+        "data": d_ativa,
+        "janela": janela_limpa,
+        "transportadora": st.session_state.get("m2_transp", "").upper(),
+        "placa": st.session_state.get("m2_placa", "").upper(),
+        "veiculo": st.session_state.get("m2_veiculo", "").upper(),
+        "motorista": st.session_state.get("m2_motorista", "").upper(),
+        "nf": st.session_state.get("m2_nf", ""),
+        "volume": float(st.session_state.get("m2_volume", 0.0)),
+        "produto": st.session_state.get("m2_produto", "").upper(),
+        "chegada_efetiva": None,
+        "status_chegada": "Aguardando"
+    })
+    
+    # Registra o incremento da cota consumida
+    st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
+    st.session_state["m2_msg_sucesso"] = "✅ Agendamento gravado e vaga garantida com sucesso!"
 
 # ESTILIZAÇÃO VISUAL (CSS)
 st.markdown("""
@@ -286,7 +332,7 @@ with aba1:
         st.dataframe(pd.DataFrame(dados_tabela), use_container_width=True, hide_index=True)
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO (REESTRUTURADO E SEM FORM TRAVANDO)
+# MÓDULO 2: PORTAL DE AGENDAMENTO (GATILHO AUTOMÁTICO COM CALLBACK ATÔMICO)
 # =================================================================================
 with aba2:
     col_cadastro, col_tabela_fs = st.columns([1.3, 2.3])
@@ -309,53 +355,40 @@ with aba2:
                 status_txt = f"({restantes} vagas)" if restantes > 0 else "(ESGOTADA)"
                 opcoes_seletor.append(f"Janela #{j['id']} [{j['horario']}] {status_txt}")
                 
-            janela_selecionada = st.selectbox("Escolha o Horário da Janela", opcoes_seletor, key="m2_janela_sel")
+            st.selectbox("Escolha o Horário da Janela", opcoes_seletor, key="m2_janela_sel")
             
-            # Campo de Transportadora solicitado
-            transportadora_in = st.text_input("TRANSPORTADORA", value="TRANSZION", key="m2_transp").upper()
+            # Campo de Transportadora obrigatório mapeado no state
+            st.text_input("TRANSPORTADORA", value="TRANSZION", key="m2_transp")
             
             c_pl, c_ve = st.columns(2)
-            with c_pl: placa_in = st.text_input("PLACA", value="JVV-7606", key="m2_placa").upper()
-            with c_ve: veiculo_in = st.text_input("VEÍCULO", value="BITREN", key="m2_veiculo").upper()
+            with c_pl: st.text_input("PLACA", value="JVV-7606", key="m2_placa")
+            with c_ve: st.text_input("VEÍCULO", value="BITREN", key="m2_veiculo")
                 
             c_mo, c_nf = st.columns(2)
-            with c_mo: motorista_in = st.text_input("MOTORISTA", value="JOSE FRANCISCO", key="m2_motorista").upper()
-            with c_nf: nf_in = st.text_input("Nº NOTA FISCAL", value="154639", key="m2_nf")
+            with c_mo: st.text_input("MOTORISTA", value="JOSE FRANCISCO", key="m2_motorista")
+            with c_nf: st.text_input("Nº NOTA FISCAL", value="154639", key="m2_nf")
                 
             c_vo, c_pr = st.columns(2)
-            with c_vo: volume_in = st.number_input("VOLUME M³", value=51000.00, step=0.01, key="m2_volume")
-            with c_pr: produto_in = st.text_input("PRODUTO", value="ANIDRO", key="m2_produto").upper()
+            with c_vo: st.number_input("VOLUME M³", value=51000.00, step=0.01, key="m2_volume")
+            with c_pr: st.text_input("PRODUTO", value="ANIDRO", key="m2_produto")
                 
-            arq_upload = st.file_uploader("ANEXAR NOTA FISCAL (PDF)", type=["pdf"], key="m2_upload_nf")
+            st.file_uploader("ANEXAR NOTA FISCAL (PDF)", type=["pdf"], key="m2_upload_nf")
             
-            # Botão de Ação Direta (Livre do bug do st.form)
-            if st.button("🔒 CONFIRMAR AGENDAMENTO FS", use_container_width=True, type="primary"):
-                id_janela_sel = int(janela_selecionada.split("#")[1].split(" ")[0])
-                janela_obj = next(j for j in st.session_state.grade_publicada["janelas"] if j["id"] == id_janela_sel)
-                janela_limpa = janela_obj["horario"]
-                
-                chave_consumo = f"{b_ativa}_{d_ativa}_{janela_limpa}"
-                consumidas = st.session_state.cotas_consumidas.get(chave_consumo, 0)
-                
-                if consumidas >= janela_obj["vagas_o"]:
-                    st.error("❌ Erro: Esta janela horária esgotou a disponibilidade física!")
-                elif not transportadora_in or not placa_in or not motorista_in:
-                    st.error("❌ Erro: Preencha todos os campos obrigatórios do veículo!")
-                else:
-                    st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
-                    
-                    # Geração de ID Único preciso baseado em timestamp de alta definição para evitar quebras de chaves duplicadas
-                    novo_id = int(time.time() * 1000)
-                    
-                    st.session_state.db_agendamentos.append({
-                        "id": novo_id, "balsa": b_ativa, "data": d_ativa, "janela": janela_limpa,
-                        "transportadora": transportadora_in, "placa": placa_in, "veiculo": veiculo_in, 
-                        "motorista": motorista_in, "nf": nf_in, "volume": float(volume_in), 
-                        "produto": produto_in, "chegada_efetiva": None, "status_chegada": "Aguardando"
-                    })
-                    st.success("✅ Agendamento gravado e vaga garantida com sucesso!")
-                    time.sleep(0.5)
-                    st.rerun()
+            # EXIBIÇÃO DE MENSAGENS RETORNADAS PELO CALLBACK
+            if "m2_msg_erro" in st.session_state:
+                st.error(st.session_state["m2_msg_erro"])
+                del st.session_state["m2_msg_erro"]
+            if "m2_msg_sucesso" in st.session_state:
+                st.success(st.session_state["m2_msg_sucesso"])
+                del st.session_state["m2_msg_sucesso"]
+            
+            # BOTÃO COM SEGURO DE CALLBACK ON_CLICK (Força execução imediata na base)
+            st.button(
+                "🔒 CONFIRMAR AGENDAMENTO FS", 
+                use_container_width=True, 
+                type="primary",
+                on_click=salvar_agendamento_modulo2
+            )
 
     with col_tabela_fs:
         st.markdown('<div class="section-header-container">📋 VEÍCULOS AGENDADOS (Passaporte do Carreteiro)</div>', unsafe_allow_html=True)
@@ -384,7 +417,6 @@ with aba2:
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
             
-            # ID Completamente dinâmico resolvendo o erro fatal de DuplicateElementKey enviado no terminal
             chave_botao_unica = f"download_btn_key_{ag['id']}_{idx}"
             l[7].download_button(
                 label="📄 Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
@@ -395,7 +427,7 @@ with aba2:
 # MÓDULO 3: RECEPÇÃO E APONTAMENTO (PORTARIA)
 # =================================================================================
 with aba3:
-    st.markdown('<div class="section-header-container">📱 Recepção Digital de Portaria (Leitura de SmartPhone)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📱  Recepção Digital de Portaria (Leitura de SmartPhone)</div>', unsafe_allow_html=True)
     col_scan, col_manual = st.columns([1.5, 2])
     
     with col_scan:
