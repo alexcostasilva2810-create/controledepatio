@@ -6,7 +6,7 @@ from io import BytesIO
 import os
 import time
 
-# 1. CONFIGURAÇÃO DA PÁGINA (Sempre no topo)
+# 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
     page_title="ZION TECNOLOGIA - LOGÍSTICA",
     page_icon="🔒",
@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # =================================================================================
-# DICIONÁRIO DE BALSAS OPERACIONAIS ORIGINAL PROTEGIDO
+# DICIONÁRIO DE BALSAS OPERACIONAIS
 # =================================================================================
 BALSAS_OPERACIONAIS = {
     "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, 
@@ -36,7 +36,7 @@ BALSAS_OPERACIONAIS = {
     "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
     "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, 
     "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXI": {"capacidade": "2998.8 m³", "qs_meta": 49}, 
+    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
     "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
     "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
     "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
@@ -70,8 +70,6 @@ if not st.session_state.autenticado:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        
-        # Tratamento seguro de exibição de imagem de fundo do login
         if os.path.exists("Gemini_Generated_Image_mz1weumz1weumz1w.png"):
             st.image("Gemini_Generated_Image_mz1weumz1weumz1w.png", use_container_width=True)
         elif os.path.exists("image_12249a.png"):
@@ -100,6 +98,15 @@ if "cotas_consumidas" not in st.session_state:
 
 if "grade_trabalho" not in st.session_state:
     st.session_state.grade_trabalho = []
+
+# ---------------------------------------------------------------------------------
+# FUNÇÕES DE TRANSIÇÃO DE FLUXO (CALLBACKS) - CORRIGE O TRAVAMENTO DO BOTÃO
+# ---------------------------------------------------------------------------------
+def atualizar_status_fluxo(id_agendamento, novo_status):
+    for idx, ag in enumerate(st.session_state.db_agendamentos):
+        if ag["id"] == id_agendamento:
+            st.session_state.db_agendamentos[idx]["fluxo_patio"] = novo_status
+            break
 
 # ---------------------------------------------------------------------------------
 # FUNÇÕES UTILITÁRIAS E QR CODE
@@ -137,9 +144,6 @@ def calcular_status_atraso(janela_str, horario_chegada_dt):
     except:
         return "⚠️ Erro no cálculo"
 
-# =================================================================================
-# FUNÇÃO DE CALLBACK PARA SALVAMENTO DO MÓDULO 2
-# =================================================================================
 def salvar_agendamento_modulo2():
     b_ativa = st.session_state.grade_publicada.get("balsa")
     d_ativa = st.session_state.grade_publicada.get("data")
@@ -211,20 +215,16 @@ aba1, aba2, aba3, aba4 = st.tabs([
 ])
 
 # =================================================================================
-# MÓDULO 1: INTELIGÊNCIA DE CÁLCULO
+# MÓDULO 1
 # =================================================================================
 with aba1:
     col_config, col_dist = st.columns([1.2, 2])
-    
     with col_config:
         st.markdown('<div class="section-header-container">⚙️ Gestão da Oferta</div>', unsafe_allow_html=True)
         balsa_sel = st.selectbox("Selecione a Embarcação", list(BALSAS_OPERACIONAIS.keys()), key="m1_balsa")
-        
         capacidade_nominal = BALSAS_OPERACIONAIS[balsa_sel]["capacidade"]
         exigencia_cts = int(BALSAS_OPERACIONAIS.get(balsa_sel, {}).get("cts_meta", 20))
-        
         st.info(f"📊 **Capacidade Nominal:** {capacidade_nominal}")
-        
         data_vigencia = st.date_input("Data de Vigência", datetime(2026, 6, 12), key="m1_data", format="DD/MM/YYYY")
         
         st.markdown("**Período de Chegada na ETC:**")
@@ -235,7 +235,6 @@ with aba1:
         intervalo_opcao = st.selectbox("Intervalo (Frequência):", ["1 hora", "2 horas"], index=0)
         passo_horas = 1 if intervalo_opcao == "1 hora" else 2
         qtd_janelas_solicitadas = st.selectbox("Janelas Ofertadas:", [4, 6, 8, 12, 24], index=3)
-        
         st.metric(label="Exigência de Células de Trabalho (CTS Automático)", value=f"{exigencia_cts} CTs")
 
         chave_verificacao = f"{balsa_sel}_{qtd_janelas_solicitadas}_{exigencia_cts}_{h_ini_str}_{h_fim_str}_{intervalo_opcao}"
@@ -261,7 +260,6 @@ with aba1:
             for idx, jan in enumerate(lista_janelas_calculadas):
                 vagas_calculadas = vagas_por_janela_base + (1 if idx < resto_vagas else 0)
                 nova_grade.append({"id": jan["id"], "horario": jan["horario"], "vagas_o": int(vagas_calculadas)})
-            
             st.session_state.grade_trabalho = nova_grade
             st.session_state.ultima_chave_config = chave_verificacao
 
@@ -280,22 +278,17 @@ with aba1:
         if st.session_state.grade_trabalho:
             total_janelas = len(st.session_state.grade_trabalho)
             cols_janelas = st.columns(4)
-            
             for idx, jan in enumerate(st.session_state.grade_trabalho):
                 col_id = idx % 4
                 with cols_janelas[col_id]:
                     st.markdown(f'<div class="janela-card"><div style="font-size:11px;color:#718096;">JANELA #{jan["id"]}</div><div style="font-weight:bold;color:#007BFF;">{jan["horario"]}</div></div>', unsafe_allow_html=True)
                     valor_atual = int(jan["vagas_o"])
-                    novo_valor = st.number_input(
-                        "Vagas", min_value=0, max_value=int(exigencia_cts), 
-                        value=valor_atual, key=f"input_janela_{jan['id']}", label_visibility="collapsed"
-                    )
+                    novo_valor = st.number_input("Vagas", min_value=0, max_value=int(exigencia_cts), value=valor_atual, key=f"input_janela_{jan['id']}", label_visibility="collapsed")
                     if novo_valor != valor_atual:
                         st.session_state.grade_trabalho[idx]["vagas_o"] = novo_valor
                         soma_atual = sum(j["vagas_o"] for j in st.session_state.grade_trabalho)
                         diferenca = exigencia_cts - soma_atual
                         indices_para_ajuste = [i for i in range(total_janelas) if i != idx]
-                        
                         if indices_para_ajuste and diferenca != 0:
                             passo_compensacao = 1 if diferenca > 0 else -1
                             while diferenca != 0:
@@ -333,11 +326,10 @@ with aba1:
         st.dataframe(pd.DataFrame(dados_tabela), use_container_width=True, hide_index=True)
 
 # =================================================================================
-# MÓDULO 2: PORTAL DE AGENDAMENTO
+# MÓDULO 2
 # =================================================================================
 with aba2:
     col_cadastro, col_tabela_fs = st.columns([1.3, 2.3])
-    
     with col_cadastro:
         st.markdown('<div class="section-header-container">📝 Novo Agendamento Logístico</div>', unsafe_allow_html=True)
         if not st.session_state.grade_publicada:
@@ -345,7 +337,6 @@ with aba2:
         else:
             b_ativa = st.session_state.grade_publicada["balsa"]
             d_ativa = st.session_state.grade_publicada["data"]
-            
             st.text_input("Embarcação Vinculada", value=f"{b_ativa} ({d_ativa})", disabled=True, key="m2_balsa_vinc")
             
             opcoes_seletor = []
@@ -370,7 +361,6 @@ with aba2:
             c_vo, c_pr = st.columns(2)
             with c_vo: st.number_input("VOLUME M³", value=51000.00, step=0.01, key="m2_volume")
             with c_pr: st.text_input("PRODUTO", value="ANIDRO", key="m2_produto")
-                
             st.file_uploader("ANEXAR NOTA FISCAL (PDF)", type=["pdf"], key="m2_upload_nf")
             
             if "m2_msg_erro" in st.session_state:
@@ -408,8 +398,6 @@ with aba2:
             
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
-            
-            # CHAVE CORRIGIDA: Evita o erro de chave duplicada adicionando prefixo limpo com ID único
             chave_botao_unica = f"qr_down_{ag['id']}"
             l[7].download_button(
                 label="📄 Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
@@ -417,10 +405,10 @@ with aba2:
             )
 
 # =================================================================================
-# MÓDULO 3: RECEPÇÃO E APONTAMENTO (PORTARIA)
+# MÓDULO 3
 # =================================================================================
 with aba3:
-    st.markdown('<div class="section-header-container">📱 Recepção Digital de Portaria (Leitura de SmartPhone)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header-container">📱 Recepção Digital de Portaria</div>', unsafe_allow_html=True)
     col_scan, col_manual = st.columns([1.5, 2])
     
     with col_scan:
@@ -451,15 +439,15 @@ with aba3:
                         else:
                             st.warning("⚠️ Este veículo já deu entrada.")
                     else:
-                        st.error("❌ Código inválido ou agendamento não encontrado.")
+                        st.error("❌ Código não encontrado.")
                 except:
-                    st.error("❌ Formato de código inválido.")
+                    st.error("❌ Formato inválido.")
 
     with col_manual:
         st.subheader("Check-in de Segurança Rápido")
         veiculos_nao_recebidos = [ag for ag in st.session_state.db_agendamentos if ag.get("chegada_efetiva") is None]
         if veiculos_nao_recebidos:
-            selecionado_manual = st.selectbox("Selecione o veículo:", options=[f"ID: {v['id']} | Balsa: {v['balsa']} | Placa: {v['placa']}" for v in veiculos_nao_recebidos], key="m3_manual_sel")
+            selecionado_manual = st.selectbox("Selecione o veículo:", options=[f"ID: {v['id']} | Placa: {v['placa']}" for v in veiculos_nao_recebidos], key="m3_manual_sel")
             if st.button("⏱️ REGISTRAR CHEGADA AGORA", use_container_width=True, key="m3_btn_manual"):
                 id_manual = int(selecionado_manual.split("ID: ")[1].split(" |")[0])
                 idx_m = next((i for i, item in enumerate(st.session_state.db_agendamentos) if item["id"] == id_manual), None)
@@ -503,7 +491,7 @@ with aba3:
         l_m3[8].markdown(f'<div class="tabela-linha" style="color:{cor_status}; font-weight:bold;">{status_c}</div>', unsafe_allow_html=True)
 
 # =================================================================================
-# MÓDULO 4: NOVO MÓDULO DE CONTROLE DE FLUXO OPERACIONAL (PÁTIO / POSTO)
+# MÓDULO 4: CONTROLE DE FLUXO OPERACIONAL (PÁTIO / POSTO) - CALLBACKS ADICIONADOS
 # =================================================================================
 with aba4:
     st.markdown('<div class="section-header-container">📋 Monitoramento e Transição de Status de Pátio / Posto</div>', unsafe_allow_html=True)
@@ -569,20 +557,14 @@ with aba4:
             
         l_m4[8].markdown(f'<div class="tabela-linha" style="color:{cor_txt}; font-weight:bold;">{f_label}</div>', unsafe_allow_html=True)
         
-        # CHAVE CORRIGIDA: Evita colisões e erros ao mudar estados usando chaves dinâmicas baseadas no ID real
+        # Correção da lógica de renderização usando on_click
         btn_key = f"btn_fluxo_{ag['id']}"
         
         if st_atual == "AGUARDANDO":
-            if l_m4[9].button("Liberar p/ Posto ➡️", key=btn_key, use_container_width=True):
-                st.session_state.db_agendamentos[idx_m4]["fluxo_patio"] = "TRANSITO"
-                st.rerun()
+            l_m4[9].button("Liberar p/ Posto ➡️", key=btn_key, use_container_width=True, on_click=atualizar_status_fluxo, args=(ag["id"], "TRANSITO"))
         elif st_atual == "TRANSITO":
-            if l_m4[9].button("Chegou Doca ➡️", key=btn_key, use_container_width=True):
-                st.session_state.db_agendamentos[idx_m4]["fluxo_patio"] = "AGUARDANDO DESCARGA"
-                st.rerun()
+            l_m4[9].button("Chegou Doca ➡️", key=btn_key, use_container_width=True, on_click=atualizar_status_fluxo, args=(ag["id"], "AGUARDANDO DESCARGA"))
         elif st_atual == "AGUARDANDO DESCARGA":
-            if l_m4[9].button("Concluir Operação ✔️", key=btn_key, use_container_width=True):
-                st.session_state.db_agendamentos[idx_m4]["fluxo_patio"] = "FINALIZADA"
-                st.rerun()
+            l_m4[9].button("Concluir Operação ✔️", key=btn_key, use_container_width=True, on_click=atualizar_status_fluxo, args=(ag["id"], "FINALIZADA"))
         else:
             l_m4[9].markdown('<div class="tabela-linha" style="color:#16A34A;">Concluído</div>', unsafe_allow_html=True)
