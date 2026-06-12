@@ -5,6 +5,7 @@ import qrcode
 from io import BytesIO
 import os
 import time
+import requests
 
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
@@ -15,41 +16,133 @@ st.set_page_config(
 )
 
 # =================================================================================
-# DICIONÁRIO DE BALSAS OPERACIONAIS
+# CONFIGURAÇÃO DAS CREDENCIAIS DO NOTION (Substitua com os seus dados reais)
 # =================================================================================
-BALSAS_OPERACIONAIS = {
-    "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, 
-    "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
-    "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
-    "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
-    "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
-    "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
-    "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
-    "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, 
-    "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
-    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
-    "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
-    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, 
-    "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
-    "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, 
-    "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
-    "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
-    "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, 
-    "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
+NOTION_TOKEN = "ntn_k8936640597ELuTeAuJg3JQKsyslmkO1d58Zz9ZoDArgr4"  # Coloque o token que começa com ntn_ aqui
+DATABASE_ID = "https://app.notion.com/developers/connections/37c214aa-5055-813b-85d4-00277e7c883f"    # Coloque o ID da URL da sua tabela aqui
+
+HEADERS = {
+    "Authorization": f"Bearer {NOTION_TOKEN}",
+    "Content-Type": "application/json",
+    "Notion-Version": "2022-06-28"
 }
 
+# ---------------------------------------------------------------------------------
+# FUNÇÕES DE COMUNICAÇÃO COM O NOTION
+# ---------------------------------------------------------------------------------
+def carregar_dados_notion():
+    """Busca todos os registros salvos no Notion e joga na memória do Streamlit"""
+    url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
+    try:
+        response = requests.post(url, headers=HEADERS)
+        if response.status_code == 200:
+            dados = response.json().get("results", [])
+            lista_agendamentos = []
+            for pagina in dados:
+                props = pagina.get("properties", {})
+                
+                try:
+                    # Extração segura tratando id como string ou int no notion
+                    id_notion = props.get("ID", {}).get("number", 0)
+                    if id_notion is None:
+                        id_notion = 0
+                        
+                    lista_agendamentos.append({
+                        "notion_page_id": pagina.get("id"),
+                        "id": int(id_notion),
+                        "balsa": props.get("Balsa", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Balsa", {}).get("rich_text") else "",
+                        "data": props.get("Data", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Data", {}).get("rich_text") else "",
+                        "janela": props.get("Janela", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Janela", {}).get("rich_text") else "",
+                        "transportadora": props.get("Transportadora", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Transportadora", {}).get("rich_text") else "",
+                        "placa": props.get("Placa", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Placa", {}).get("rich_text") else "",
+                        "veiculo": props.get("Veiculo", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Veiculo", {}).get("rich_text") else "",
+                        "motorista": props.get("Motorista", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Motorista", {}).get("rich_text") else "",
+                        "nf": props.get("NF", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("NF", {}).get("rich_text") else "",
+                        "volume": float(props.get("Volume", {}).get("number", 0.0) or 0.0),
+                        "produto": props.get("Produto", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Produto", {}).get("rich_text") else "",
+                        "chegada_efetiva": props.get("Chegada Efetiva", {}).get("rich_text", [{}])[0].get("text", {}).get("content", None) if props.get("Chegada Efetiva", {}).get("rich_text") else None,
+                        "status_chegada": props.get("Status Chegada", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "Aguardando") if props.get("Status Chegada", {}).get("rich_text") else "Aguardando",
+                        "fluxo_patio": props.get("Fluxo Patio", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "AGUARDANDO") if props.get("Fluxo Patio", {}).get("rich_text") else "AGUARDANDO"
+                    })
+                except:
+                    continue
+            return lista_agendamentos
+    except:
+        return []
+    return []
+
+def salvar_no_notion(ag):
+    """Cria uma nova linha no banco de dados do Notion"""
+    url = "https://api.notion.com/v1/pages"
+    payload = {
+        "parent": {"database_id": DATABASE_ID},
+        "properties": {
+            "ID": {"number": ag["id"]},
+            "Balsa": {"rich_text": [{"text": {"content": ag["balsa"]}}]},
+            "Data": {"rich_text": [{"text": {"content": ag["data"]}}]},
+            "Janela": {"rich_text": [{"text": {"content": ag["janela"]}}]},
+            "Transportadora": {"rich_text": [{"text": {"content": ag["transportadora"]}}]},
+            "Placa": {"rich_text": [{"text": {"content": ag["placa"]}}]},
+            "Veiculo": {"rich_text": [{"text": {"content": ag["veiculo"]}}]},
+            "Motorista": {"rich_text": [{"text": {"content": ag["motorista"]}}]},
+            "NF": {"rich_text": [{"text": {"content": ag["nf"]}}]},
+            "Volume": {"number": ag["volume"]},
+            "Produto": {"rich_text": [{"text": {"content": ag["produto"]}}]},
+            "Chegada Efetiva": {"rich_text": [{"text": {"content": ag["chegada_efetiva"] or ""}}]},
+            "Status Chegada": {"rich_text": [{"text": {"content": ag["status_chegada"]}}]},
+            "Fluxo Patio": {"rich_text": [{"text": {"content": ag["fluxo_patio"]}}]}
+        }
+    }
+    requests.post(url, headers=HEADERS, json=payload)
+
+def atualizar_no_notion(page_id, campos_atualizados):
+    """Atualiza colunas específicas de uma linha existente no Notion"""
+    url = f"https://api.notion.com/v1/pages/{page_id}"
+    properties = {}
+    for chave, valor in campos_atualizados.items():
+        if isinstance(valor, (int, float)):
+            properties[chave] = {"number": valor}
+        else:
+            properties[chave] = {"rich_text": [{"text": {"content": valor or ""}}]}
+            
+    payload = {"properties": properties}
+    requests.patch(url, headers=HEADERS, json=payload)
+
+
 # =================================================================================
-# CONTROLE DE ACESSO E USUÁRIOS
+# ESTADOS DE SESSÃO
 # =================================================================================
-USUARIOS_CADASTRADOS = {
-    "admin": "zion123",        
-    "portaria": "patio2024",   
-    "fs_cliente": "fs01"       
+if "db_agendamentos" not in st.session_state:
+    st.session_state.db_agendamentos = carregar_dados_notion()
+
+if "grade_publicada" not in st.session_state:
+    st.session_state.grade_publicada = {}
+
+if "cotas_consumidas" not in st.session_state:
+    cotas = {}
+    for ag in st.session_state.db_agendamentos:
+        chave = f"{ag['balsa']}_{ag['data']}_{ag['janela']}"
+        cotas[chave] = cotas.get(chave, 0) + 1
+    st.session_state.cotas_consumidas = cotas
+
+if "grade_trabalho" not in st.session_state:
+    st.session_state.grade_trabalho = []
+
+BALSAS_OPERACIONAIS = {
+    "SD I": {"capacidade": "1040.4 m³", "cts_meta": 17}, "SD II": {"capacidade": "1530.0 m³", "cts_meta": 25},
+    "SD IV": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD V": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD VI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD VII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
+    "SD VIII": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD IX": {"capacidade": "1407.6 m³", "cts_meta": 23},
+    "SD X": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XI": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD XII": {"capacidade": "2325.6 m³", "cts_meta": 38}, "SD XIII": {"capacidade": "2325.6 m³", "cts_meta": 38},
+    "SD XIV": {"capacidade": "1468.8 m³", "cts_meta": 24}, "SD XV": {"capacidade": "1407.6 m³", "cts_meta": 23},
+    "SD XVI": {"capacidade": "1407.6 m³", "cts_meta": 23}, "SD XVII": {"capacidade": "1468.8 m³", "cts_meta": 24}, 
+    "SD XVIII": {"capacidade": "795.6 m³", "cts_meta": 13}, "SD XX": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XXI": {"capacidade": "2998.8 m³", "cts_meta": 49}, "SD XXII": {"capacidade": "2998.8 m³", "cts_meta": 49},
+    "SD XXIII": {"capacidade": "2998.8 m³", "cts_meta": 49}, "TWB 200": {"capacidade": "2142.0 m³", "cts_meta": 35}
 }
+
+USUARIOS_CADASTRADOS = {"admin": "zion123", "portaria": "patio2024", "fs_cliente": "fs01"}
 
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
@@ -72,8 +165,6 @@ if not st.session_state.autenticado:
         st.markdown("<br><br>", unsafe_allow_html=True)
         if os.path.exists("Gemini_Generated_Image_mz1weumz1weumz1w.png"):
             st.image("Gemini_Generated_Image_mz1weumz1weumz1w.png", use_container_width=True)
-        elif os.path.exists("image_12249a.png"):
-            st.image("image_12249a.png", use_container_width=True)
         else:
             st.markdown("<h2 style='text-align:center; color:#0B192C;'>🔒 ACESSO AO SISTEMA</h2>", unsafe_allow_html=True)
             
@@ -84,33 +175,17 @@ if not st.session_state.autenticado:
                 realizar_login(user, password)
     st.stop()
 
-# =================================================================================
-# ESTADOS DE SESSÃO E BANCO DE DADOS
-# =================================================================================
-if "grade_publicada" not in st.session_state:
-    st.session_state.grade_publicada = {}
-
-if "db_agendamentos" not in st.session_state:
-    st.session_state.db_agendamentos = []
-
-if "cotas_consumidas" not in st.session_state:
-    st.session_state.cotas_consumidas = {}
-
-if "grade_trabalho" not in st.session_state:
-    st.session_state.grade_trabalho = []
-
 # ---------------------------------------------------------------------------------
-# FUNÇÕES DE TRANSIÇÃO DE FLUXO (CALLBACKS) - CORRIGE O TRAVAMENTO DO BOTÃO
+# REGRAS OPERACIONAIS
 # ---------------------------------------------------------------------------------
 def atualizar_status_fluxo(id_agendamento, novo_status):
     for idx, ag in enumerate(st.session_state.db_agendamentos):
         if ag["id"] == id_agendamento:
             st.session_state.db_agendamentos[idx]["fluxo_patio"] = novo_status
+            if ag.get("notion_page_id"):
+                atualizar_no_notion(ag["notion_page_id"], {"Fluxo Patio": novo_status})
             break
 
-# ---------------------------------------------------------------------------------
-# FUNÇÕES UTILITÁRIAS E QR CODE
-# ---------------------------------------------------------------------------------
 def obter_texto_qrcode(agendamento_dict):
     return (
         f"ID:{agendamento_dict['id']}\n"
@@ -164,8 +239,9 @@ def salvar_agendamento_modulo2():
         st.session_state["m2_msg_erro"] = "Esta janela horária esgotou a disponibilidade física!"
         return
         
-    novo_id = int(time.time() * 1000)
-    st.session_state.db_agendamentos.append({
+    # Gera um ID inteiro baseado em timestamp para evitar conflitos
+    novo_id = int(time.time() * 1000) % 10000000
+    novo_agendamento = {
         "id": novo_id,
         "balsa": b_ativa,
         "data": d_ativa,
@@ -180,12 +256,14 @@ def salvar_agendamento_modulo2():
         "chegada_efetiva": None,
         "status_chegada": "Aguardando",
         "fluxo_patio": "AGUARDANDO"
-    })
+    }
     
+    salvar_no_notion(novo_agendamento)
+    st.session_state.db_agendamentos = carregar_dados_notion()
     st.session_state.cotas_consumidas[chave_consumo] = consumidas + 1
-    st.session_state["m2_msg_sucesso"] = "✅ Agendamento gravado e vaga garantida com sucesso!"
+    st.session_state["m2_msg_sucesso"] = "✅ Agendamento salvo no Notion com sucesso!"
 
-# ESTILIZAÇÃO VISUAL (CSS)
+# VISUAL CSS
 st.markdown("""
     <style>
     .main .block-container { padding-top: 1.5rem; }
@@ -398,7 +476,10 @@ with aba2:
             
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
-            chave_botao_unica = f"qr_down_{ag['id']}"
+            
+            # CORREÇÃO DA KEY: Forçando índice dinâmico único para matar o erro de duplicação
+            chave_botao_unica = f"qr_download_btn_{ag['id']}_{idx}"
+            
             l[7].download_button(
                 label="📄 Passe", data=bytes_qr, file_name=f"PASSE_{ag['placa']}.png",
                 mime="image/png", key=chave_botao_unica, use_container_width=True
@@ -433,6 +514,13 @@ with aba3:
                             agora = datetime.now()
                             st.session_state.db_agendamentos[idx]["chegada_efetiva"] = agora.strftime("%H:%M:%S")
                             st.session_state.db_agendamentos[idx]["status_chegada"] = calcular_status_atraso(ag_alvo["janela"], agora)
+                            
+                            if ag_alvo.get("notion_page_id"):
+                                atualizar_no_notion(ag_alvo["notion_page_id"], {
+                                    "Chegada Efetiva": agora.strftime("%H:%M:%S"),
+                                    "Status Chegada": st.session_state.db_agendamentos[idx]["status_chegada"]
+                                })
+                            
                             st.success(f"✅ Entrada registrada para a Placa {ag_alvo['placa']}!")
                             time.sleep(0.5)
                             st.rerun()
@@ -454,6 +542,13 @@ with aba3:
                 agora = datetime.now()
                 st.session_state.db_agendamentos[idx_m]["chegada_efetiva"] = agora.strftime("%H:%M:%S")
                 st.session_state.db_agendamentos[idx_m]["status_chegada"] = calcular_status_atraso(st.session_state.db_agendamentos[idx_m]["janela"], agora)
+                
+                ag_m = st.session_state.db_agendamentos[idx_m]
+                if ag_m.get("notion_page_id"):
+                    atualizar_no_notion(ag_m["notion_page_id"], {
+                        "Chegada Efetiva": agora.strftime("%H:%M:%S"),
+                        "Status Chegada": ag_m["status_chegada"]
+                    })
                 st.rerun()
         else:
             st.info("Todos os caminhões agendados já se encontram no pátio.")
@@ -478,93 +573,4 @@ with aba3:
         l_m3[0].markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
         l_m3[1].markdown(f'<div class="tabela-linha">{ag["id"]}</div>', unsafe_allow_html=True)
         l_m3[2].markdown(f'<div class="tabela-linha">{ag["janela"]}</div>', unsafe_allow_html=True)
-        l_m3[3].markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
-        l_m3[4].markdown(f'<div class="tabela-linha">{ag["veiculo"]}</div>', unsafe_allow_html=True)
-        l_m3[5].markdown(f'<div class="tabela-linha">{ag["motorista"]}</div>', unsafe_allow_html=True)
-        l_m3[6].markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
-        
-        hora_c = ag.get("chegada_efetiva") if ag.get("chegada_efetiva") else "--:--:--"
-        l_m3[7].markdown(f'<div class="tabela-linha" style="font-weight:bold; color:#1E3A8A;">{hora_c}</div>', unsafe_allow_html=True)
-        
-        status_c = ag.get("status_chegada") if ag.get("status_chegada") else "Aguardando"
-        cor_status = "#334155" if "Aguardando" in status_c else ("#DC2626" if "Atrasado" in status_c else "#16A34A")
-        l_m3[8].markdown(f'<div class="tabela-linha" style="color:{cor_status}; font-weight:bold;">{status_c}</div>', unsafe_allow_html=True)
-
-# =================================================================================
-# MÓDULO 4: CONTROLE DE FLUXO OPERACIONAL (PÁTIO / POSTO) - CALLBACKS ADICIONADOS
-# =================================================================================
-with aba4:
-    st.markdown('<div class="section-header-container">📋 Monitoramento e Transição de Status de Pátio / Posto</div>', unsafe_allow_html=True)
-    
-    total_m4 = len(st.session_state.db_agendamentos)
-    c_aguardando = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "AGUARDANDO"])
-    c_transito = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "TRANSITO"])
-    c_descarga = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "AGUARDANDO DESCARGA"])
-    c_finalizado = len([a for a in st.session_state.db_agendamentos if a.get("fluxo_patio") == "FINALIZADA"])
-    
-    card1, card2, card3, card4, card5 = st.columns(5)
-    card1.metric("Total em Operação", f"{total_m4} Vol.")
-    card2.metric("Aguardando Saída", f"{c_aguardando} Vol.")
-    card3.metric("Em Trânsito p/ Posto", f"{c_transito} Vol.")
-    card4.metric("Aguardando Descarga", f"{c_descarga} Vol.")
-    card5.metric("Finalizados", f"{c_finalizado} Vol.")
-    
-    st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-    
-    pesos_m4 = [0.7, 1.2, 1.3, 0.9, 0.9, 1.0, 1.2, 0.8, 1.3, 1.4]
-    
-    c_m4 = st.columns(pesos_m4)
-    c_m4[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
-    c_m4[1].markdown('<div class="tabela-header">ID</div>', unsafe_allow_html=True)
-    c_m4[2].markdown('<div class="tabela-header">JANELA</div>', unsafe_allow_html=True)
-    c_m4[3].markdown('<div class="tabela-header">HORA CHEGADA</div>', unsafe_allow_html=True)
-    c_m4[4].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
-    c_m4[5].markdown('<div class="tabela-header">VEÍCULO</div>', unsafe_allow_html=True)
-    c_m4[6].markdown('<div class="tabela-header">TRANSPORTADORA</div>', unsafe_allow_html=True)
-    c_m4[7].markdown('<div class="tabela-header">NF</div>', unsafe_allow_html=True)
-    c_m4[8].markdown('<div class="tabela-header">STATUS FLUXO</div>', unsafe_allow_html=True)
-    c_m4[9].markdown('<div class="tabela-header">MUDAR ESTÁGIO</div>', unsafe_allow_html=True)
-    
-    if total_m4 == 0:
-        st.info("Nenhum veículo agendado ou em pátio no momento.")
-        
-    for idx_m4, ag in enumerate(st.session_state.db_agendamentos):
-        l_m4 = st.columns(pesos_m4)
-        l_m4[0].markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
-        l_m4[1].markdown(f'<div class="tabela-linha">{ag["id"]}</div>', unsafe_allow_html=True)
-        l_m4[2].markdown(f'<div class="tabela-linha">{ag["janela"]}</div>', unsafe_allow_html=True)
-        
-        hora_chegada_limpa = ag.get("chegada_efetiva") if ag.get("chegada_efetiva") else "Não Chegou"
-        l_m4[3].markdown(f'<div class="tabela-linha">{hora_chegada_limpa}</div>', unsafe_allow_html=True)
-        l_m4[4].markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
-        l_m4[5].markdown(f'<div class="tabela-linha">{ag["veiculo"]}</div>', unsafe_allow_html=True)
-        l_m4[6].markdown(f'<div class="tabela-linha">{ag.get("transportadora", "N/I")}</div>', unsafe_allow_html=True)
-        l_m4[7].markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
-        
-        st_atual = ag.get("fluxo_patio", "AGUARDANDO")
-        if st_atual == "AGUARDANDO":
-            cor_txt = "#D97706"
-            f_label = "⏳ AGUARDANDO"
-        elif st_atual == "TRANSITO":
-            cor_txt = "#2563EB"
-            f_label = "🚚 TRÂNSITO (POSTO)"
-        elif st_atual == "AGUARDANDO DESCARGA":
-            cor_txt = "#7C3AED"
-            f_label = "⚓ AGUARD. DESCARGA"
-        else:
-            cor_txt = "#16A34A"
-            f_label = "✅ FINALIZADA"
-            
-        l_m4[8].markdown(f'<div class="tabela-linha" style="color:{cor_txt}; font-weight:bold;">{f_label}</div>', unsafe_allow_html=True)
-        
-        # Correção da lógica de renderização usando on_click
-        btn_key = f"btn_fluxo_{ag['id']}"
-        
-        if st_atual == "AGUARDANDO":
-            l_m4[9].button("Liberar p/ Posto ➡️", key=btn_key, use_container_width=True, on_click=atualizar_status_fluxo, args=(ag["id"], "TRANSITO"))
-        elif st_atual == "TRANSITO":
-            l_m4[9].button("Chegou Doca ➡️", key=btn_key, use_container_width=True, on_click=atualizar_status_fluxo, args=(ag["id"], "AGUARDANDO DESCARGA"))
-        elif st_atual == "AGUARDANDO DESCARGA":
-            l_m4[9].button("Concluir Operação ✔️", key=btn_key, use_container_width=True, on_click=atualizar_status_fluxo, args=(ag["id"], "FINALIZADA"))
-        else:
-            l_m4[9].markdown('<div class="tabela-linha" style="color:#16A34A;">Concluído</div>', unsafe_allow_html=True)
+        l_m3
