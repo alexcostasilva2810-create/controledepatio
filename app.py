@@ -19,7 +19,7 @@ st.set_page_config(
 # CONFIGURAÇÃO DAS CREDENCIAIS DO NOTION (Substitua com os seus dados reais)
 # =================================================================================
 NOTION_TOKEN = "ntn_k8936640597ELuTeAuJg3JQKsyslmkO1d58Zz9ZoDArgr4"  # Coloque o token que começa com ntn_ aqui
-DATABASE_ID = "https://app.notion.com/developers/connections/37c214aa-5055-813b-85d4-00277e7c883f"    # Coloque o ID da URL da sua tabela aqui
+DATABASE_ID = "37c214aa5055813b85d400277e7c883f"    # Coloque o ID da URL da sua tabela aqui
 
 HEADERS = {
     "Authorization": f"Bearer {NOTION_TOKEN}",
