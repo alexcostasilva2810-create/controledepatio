@@ -19,7 +19,7 @@ st.set_page_config(
 # CONFIGURAÇÃO DAS CREDENCIAIS DO NOTION (Substitua com os seus dados reais)
 # =================================================================================
 NOTION_TOKEN = "ntn_k8936640597ELuTeAuJg3JQKsys1mk01d58Zz9ZoD"  # Seu token atualizado
-DATABASE_ID = "SUA_NOVA_DATABASE_ID_AQUI"    # Coloque aqui o ID da tabela AGENDAMENTO
+DATABASE_ID = "37d214aa505580f69315f6602acdb63a"    # Coloque aqui o ID da tabela AGENDAMENTO
 
 HEADERS = {
     "Authorization": f"Bearer {NOTION_TOKEN}",
