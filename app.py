@@ -18,8 +18,8 @@ st.set_page_config(
 # =================================================================================
 # CONFIGURAÇÃO DAS CREDENCIAIS DO NOTION (Substitua com os seus dados reais)
 # =================================================================================
-NOTION_TOKEN = "ntn_k8936640597ELuTeAuJg3JQKsyslmkO1d58Zz9ZoDArgr4"  # Coloque o token que começa com ntn_ aqui
-DATABASE_ID = "37c214aa5055813b85d400277e7c883f"    # Coloque o ID da URL da sua tabela aqui
+NOTION_TOKEN = "ntn_k8936640597ELuTeAuJg3JQKsys1mk01d58Zz9ZoD"  # Seu token atualizado
+DATABASE_ID = "SUA_NOVA_DATABASE_ID_AQUI"    # Coloque aqui o ID da tabela AGENDAMENTO
 
 HEADERS = {
     "Authorization": f"Bearer {NOTION_TOKEN}",
@@ -42,7 +42,7 @@ def carregar_dados_notion():
                 props = pagina.get("properties", {})
                 
                 try:
-                    # Extração segura tratando id como string ou int no notion
+                    # Extração segura tratando id como número
                     id_notion = props.get("ID", {}).get("number", 0)
                     if id_notion is None:
                         id_notion = 0
@@ -50,7 +50,7 @@ def carregar_dados_notion():
                     lista_agendamentos.append({
                         "notion_page_id": pagina.get("id"),
                         "id": int(id_notion),
-                        "balsa": props.get("Balsa", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Balsa", {}).get("rich_text") else "",
+                        "balsa": props.get("Balsa", {}).get("title", [{}])[0].get("text", {}).get("content", "") if props.get("Balsa", {}).get("title") else "",
                         "data": props.get("Data", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Data", {}).get("rich_text") else "",
                         "janela": props.get("Janela", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Janela", {}).get("rich_text") else "",
                         "transportadora": props.get("Transportadora", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "") if props.get("Transportadora", {}).get("rich_text") else "",
@@ -77,8 +77,8 @@ def salvar_no_notion(ag):
     payload = {
         "parent": {"database_id": DATABASE_ID},
         "properties": {
+            "Balsa": {"title": [{"text": {"content": ag["balsa"]}}]},
             "ID": {"number": ag["id"]},
-            "Balsa": {"rich_text": [{"text": {"content": ag["balsa"]}}]},
             "Data": {"rich_text": [{"text": {"content": ag["data"]}}]},
             "Janela": {"rich_text": [{"text": {"content": ag["janela"]}}]},
             "Transportadora": {"rich_text": [{"text": {"content": ag["transportadora"]}}]},
@@ -239,7 +239,6 @@ def salvar_agendamento_modulo2():
         st.session_state["m2_msg_erro"] = "Esta janela horária esgotou a disponibilidade física!"
         return
         
-    # Gera um ID inteiro baseado em timestamp para evitar conflitos
     novo_id = int(time.time() * 1000) % 10000000
     novo_agendamento = {
         "id": novo_id,
@@ -477,7 +476,7 @@ with aba2:
             texto_qr = obter_texto_qrcode(ag)
             bytes_qr = gerar_imagem_qrcode(texto_qr)
             
-            # CORREÇÃO DA KEY: Forçando índice dinâmico único para matar o erro de duplicação
+            # CORREÇÃO DA KEY DO BOTÃO (Tornada única dinamicamente)
             chave_botao_unica = f"qr_download_btn_{ag['id']}_{idx}"
             
             l[7].download_button(
@@ -501,8 +500,10 @@ with aba3:
                     linhas = codigo_scaneado.split("\n")
                     id_localizado = None
                     for linha in linhas:
-                        if "ID:" in linha:
-                            id_localizado = int(linha.split(":")[1].strip())
+                        # CORREÇÃO DO ERRO DE SINTAXE DO WALRUS OPERATOR (Linha 432)
+                        linha_texto = str(linha)
+                        if "ID:" in linha_texto:
+                            id_localizado = int(linha_texto.split(":")[1].strip())
                             break
                     if id_localizado is None:
                         id_localizado = int(codigo_scaneado.strip())
@@ -573,4 +574,50 @@ with aba3:
         l_m3[0].markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
         l_m3[1].markdown(f'<div class="tabela-linha">{ag["id"]}</div>', unsafe_allow_html=True)
         l_m3[2].markdown(f'<div class="tabela-linha">{ag["janela"]}</div>', unsafe_allow_html=True)
-        l_m3
+        l_m3[3].markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
+        l_m3[4].markdown(f'<div class="tabela-linha">{ag["veiculo"]}</div>', unsafe_allow_html=True)
+        l_m3[5].markdown(f'<div class="tabela-linha">{ag["motorista"]}</div>', unsafe_allow_html=True)
+        l_m3[6].markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
+        l_m3[7].markdown(f'<div class="tabela-linha">{ag["chegada_efetiva"] or "Aguardando"}</div>', unsafe_allow_html=True)
+        l_m3[8].markdown(f'<div class="tabela-linha">{ag["status_chegada"]}</div>', unsafe_allow_html=True)
+
+# =================================================================================
+# MÓDULO 4
+# =================================================================================
+with aba4:
+    st.markdown('<div class="section-header-container">📊 Controle de Fluxo Operacional (Pátio/Posto)</div>', unsafe_allow_html=True)
+    veiculos_no_patio = [ag for ag in st.session_state.db_agendamentos if ag.get("chegada_efetiva") is not None]
+    
+    if not veiculos_no_patio:
+        st.info("Nenhum veículo deu entrada no pátio até o momento.")
+    else:
+        pesos_m4 = [0.8, 1.0, 1.2, 1.2, 1.5, 1.5]
+        c_m4 = st.columns(pesos_m4)
+        c_m4[0].markdown('<div class="tabela-header">BALSA</div>', unsafe_allow_html=True)
+        c_m4[1].markdown('<div class="tabela-header">PLACA</div>', unsafe_allow_html=True)
+        c_m4[2].markdown('<div class="tabela-header">MOTORISTA</div>', unsafe_allow_html=True)
+        c_m4[3].markdown('<div class="tabela-header">Nº NF</div>', unsafe_allow_html=True)
+        c_m4[4].markdown('<div class="tabela-header">FLUXO ATUAL</div>', unsafe_allow_html=True)
+        c_m4[5].markdown('<div class="tabela-header">ALTERAR STATUS</div>', unsafe_allow_html=True)
+        
+        for idx, ag in enumerate(veiculos_no_patio):
+            l_m4 = st.columns(pesos_m4)
+            l_m4[0].markdown(f'<div class="tabela-linha">{ag["balsa"]}</div>', unsafe_allow_html=True)
+            l_m4[1].markdown(f'<div class="tabela-linha">{ag["placa"]}</div>', unsafe_allow_html=True)
+            l_m4[2].markdown(f'<div class="tabela-linha">{ag["motorista"]}</div>', unsafe_allow_html=True)
+            l_m4[3].markdown(f'<div class="tabela-linha">{ag["nf"]}</div>', unsafe_allow_html=True)
+            l_m4[4].markdown(f'<div class="tabela-linha"><b>{ag["fluxo_patio"]}</b></div>', unsafe_allow_html=True)
+            
+            opcoes_status = ["AGUARDANDO", "DOCA_01", "DOCA_02", "ABASTECENDO", "CONCLUIDO"]
+            try:
+                def_idx = opcoes_status.index(ag["fluxo_patio"])
+            except:
+                def_idx = 0
+                
+            novo_st = l_m4[5].selectbox(
+                "Mudar", opcoes_status, index=def_idx, 
+                key=f"sel_fluxo_{ag['id']}_{idx}", label_visibility="collapsed"
+            )
+            if novo_st != ag["fluxo_patio"]:
+                atualizar_status_fluxo(ag["id"], novo_st)
+                st.rerun()
